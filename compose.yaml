@@ -1,0 +1,19 @@
+# Host CodeVigrah for other people: `docker compose up -d --build`, then put HTTPS in front (see docs/deployment.md).
+services:
+  codevigrah:
+    build: .
+    image: codevigrah:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8765:8765"  # only this machine; your reverse proxy or tunnel publishes it
+    env_file:
+      - path: .env  # AI keys and other settings; see .env.example
+        required: false
+    environment:
+      CODEVIGRAH_PUBLIC: "1"
+      CODEVIGRAH_TRUST_PROXY: "1"
+    volumes:
+      - codevigrah-data:/data
+
+volumes:
+  codevigrah-data:

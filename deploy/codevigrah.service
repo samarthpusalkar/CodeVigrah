@@ -1,0 +1,23 @@
+# systemd unit: run CodeVigrah at boot on a Raspberry Pi or any Linux machine.
+#   1. Edit User, WorkingDirectory and the ExecStart flags below.
+#   2. sudo cp deploy/codevigrah.service /etc/systemd/system/
+#   3. sudo systemctl daemon-reload && sudo systemctl enable --now codevigrah
+#   4. journalctl -u codevigrah -f      (logs)
+[Unit]
+Description=CodeVigrah: understand any repository like its author
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/codevigrah
+# Settings are read from WorkingDirectory/.env. Add --public if the instance is reachable from the internet.
+ExecStart=/home/pi/codevigrah/run.sh --host 0.0.0.0
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

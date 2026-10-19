@@ -1,0 +1,29 @@
+# CodeVigrah data: clones of other people's repositories, analyses and cached AI output
+workspace/
+*.log
+
+# Secrets: keep real keys out of git (use .env.example as the template)
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

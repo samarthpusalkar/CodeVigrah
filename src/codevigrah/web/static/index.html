@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CodeVigrah</title>
+<meta name="description" content="Understand any repository like its author: guided tour, architecture, hotspots, change planner and AI chat.">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/css/app.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js" integrity="sha384-su5kReKyYlIFrI62mbQRKXHzFobMa7BHp1cK6julLPbnYcCW9NIZKJiTODjLPeDh" crossorigin="anonymous"></script>
+</head>
+<body>
+<header>
+  <h1>Code<span>Vigrah</span></h1>
+  <input id="src" placeholder="https://github.com/owner/repo · owner/repo · /absolute/local/path">
+  <button id="go">Analyze</button>
+  <button class="ghost" id="refresh" title="Pull latest and re-analyse">↻</button>
+  <select id="recent"><option value="">Recent…</option></select>
+  <span style="flex:1"></span>
+  <span id="llmstat" class="chip">AI: …</span>
+  <button class="ghost" id="themebtn" title="Toggle theme">◐</button>
+  <button class="ghost" id="setbtn">Settings</button>
+</header>
+<div class="layout">
+  <nav id="nav"></nav>
+  <main id="main"><div class="empty"><h2>Understand any repository like its author</h2>
+    <p>Paste a GitHub URL (or a local path) and press Analyze.<br>CodeVigrah maps the structure, infers the domain and design decisions, shows hotspots and hidden coupling,<br>and tells you which files an issue would touch and why it's hard.</p></div></main>
+</div>
+<aside id="drawer"><div class="head"></div><div class="body"></div></aside>
+<div class="tooltip" id="tip"></div>
+<div id="player">
+  <button class="ghost" id="tprev" title="Previous paragraph">⏮</button>
+  <button id="tplay" title="Pause / resume">⏸</button>
+  <button class="ghost" id="tnext" title="Next paragraph">⏭</button>
+  <button class="ghost" id="tstop" title="Stop">⏹</button>
+  <select id="trate" title="Speed"><option value="0.8">0.8×</option><option value="0.9">0.9×</option><option value="1">1×</option><option value="1.1">1.1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="1.75">1.75×</option></select>
+  <select id="tvoice" title="Voice"></select>
+  <label class="small" id="tautowrap" title="When a tour chapter ends, continue with the next one"><input type="checkbox" id="tauto"> next chapter</label>
+  <span class="now" id="tnow"></span>
+</div>
+<div class="modal" id="settings"><div class="card">
+  <h3>AI settings <span class="small muted" id="setver"></span></h3>
+  <p class="small muted" id="setnote"></p>
+  <div id="provlist" class="small" style="margin-bottom:8px"></div>
+  <div id="setform">
+    <label class="small">Use</label><select id="provider" style="width:100%"></select>
+    <label class="small" id="fbwrap" style="display:block;margin-top:6px"><input type="checkbox" id="fallback"> If it fails, fall back to the other configured providers</label>
+    <div id="provfields">
+      <label class="small" data-f="base_url">Base URL</label><input id="pbase" data-f="base_url" style="width:100%" placeholder="http://localhost:11434/v1">
+      <label class="small" data-f="api_key">API key <span id="keystate" class="muted"></span></label><input id="key" data-f="api_key" type="password" autocomplete="off" style="width:100%">
+      <label class="small" data-f="model">Model</label><input id="model" data-f="model" style="width:100%">
+    </div>
+  </div>
+  <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end"><button class="ghost" id="setclose">Close</button><button id="setsave">Save</button></div>
+</div></div>
+<!-- Classic scripts that share one global scope; keep this order (each file uses names defined above it). -->
+<script src="/static/js/core.js"></script>
+<script src="/static/js/markdown.js"></script>
+<script src="/static/js/diagrams.js"></script>
+<script src="/static/js/speech.js"></script>
+<script src="/static/js/app.js"></script>
+<script src="/static/js/views/tour.js"></script>
+<script src="/static/js/views/quiz.js"></script>
+<script src="/static/js/views/overview.js"></script>
+<script src="/static/js/views/architecture.js"></script>
+<script src="/static/js/views/codemap.js"></script>
+<script src="/static/js/views/graph.js"></script>
+<script src="/static/js/views/insights.js"></script>
+<script src="/static/js/views/planner.js"></script>
+<script src="/static/js/views/chat.js"></script>
+<script src="/static/js/views/report.js"></script>
+<script src="/static/js/inspector.js"></script>
+<script src="/static/js/main.js"></script>
+</body>
+</html>

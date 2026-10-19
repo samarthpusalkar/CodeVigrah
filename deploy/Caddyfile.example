@@ -1,0 +1,14 @@
+# Caddy reverse proxy with automatic HTTPS (Let's Encrypt). Point the domain's DNS at this server first.
+# Run CodeVigrah with CODEVIGRAH_PUBLIC=1, CODEVIGRAH_TRUST_PROXY=1 and CODEVIGRAH_ALLOWED_HOSTS=codevigrah.example.com.
+codevigrah.example.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:8765 {
+		# AI answers can take a few minutes
+		transport http {
+			read_timeout 10m
+		}
+	}
+	request_body {
+		max_size 1MB
+	}
+}
