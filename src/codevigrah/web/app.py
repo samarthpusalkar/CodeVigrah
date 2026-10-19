@@ -39,6 +39,7 @@ class App:
         self.ws = Workspace(settings.workspace)
         self.work = str(self.ws.root)
         self.jobs: dict[str, dict] = {}
+        self._job_for: dict[tuple[str, bool], str] = {}  # (source, refresh) -> job id, to join a job already running
         self.limiter = RateLimiter()
         self._repos: OrderedDict[str, dict] = OrderedDict()
         self._inflight: dict[tuple[str, str], threading.Event] = {}
@@ -51,14 +52,21 @@ class App:
 
     # ------------------------------------------------------------------ analysis jobs
     def start_analysis(self, source: str, refresh: bool = False) -> str:
+        """Start an analysis job, or return the one already running for the same source (a second click, or two
+        visitors at once): a duplicate would only wait for the first one's lock with an empty log."""
         jid = uuid.uuid4().hex[:10]
         job = {'id': jid, 'status': 'queued', 'log': [], 'repo': None, 'created': time.time()}
         with self._lock:
+            running = self.jobs.get(self._job_for.get((source, refresh), ''))
+            if running and running['status'] in ('queued', 'running'):
+                return running['id']
+            self._job_for[(source, refresh)] = jid
             now = time.time()
             for k in [
                 k for k, j in self.jobs.items() if j['status'] in ('done', 'error') and now - j['created'] > JOB_TTL
             ]:
                 del self.jobs[k]
+            self._job_for = {s: j for s, j in self._job_for.items() if j in self.jobs or j == jid}
             self.jobs[jid] = job
         threading.Thread(target=self._run_job, args=(job, source, refresh), daemon=True).start()
         return jid

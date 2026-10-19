@@ -15,6 +15,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   background pre-voicing of tour chapters, and a per-visitor limit on fresh audio.
 - The player shows the sentence being spoken, which script is used, and a switch to compare it with the plain reading.
 
+### Fixed
+
+- The analysis log no longer flickers or ends in "Analysis failed" when Enter is pressed again (or another repository is
+  started) during an analysis: only the latest analysis updates the page, and a request for a repository that is already
+  being analysed joins that job instead of starting a duplicate. The log shows how long the current step has been running.
+
 ## [0.1.0] - 2026-10-19
 
 First public release.

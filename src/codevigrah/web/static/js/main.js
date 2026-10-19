@@ -1,7 +1,7 @@
 // Wire up the header and start the app (loaded last).
 $('#go').onclick = () => analyze(false); $('#refresh').onclick = () => analyze(true);
 $('#src').onkeydown = e => { if (e.key === 'Enter') analyze(false); };
-$('#recent').onchange = e => { if (e.target.value) open(e.target.value); };
+$('#recent').onchange = e => { if (e.target.value) { stopWatchingJob(); open(e.target.value); } };
 $('#setbtn').onclick = () => { $('#settings').style.display = 'flex'; };
 $('#setclose').onclick = () => { $('#settings').style.display = 'none'; };
 $('#setsave').onclick = async () => {

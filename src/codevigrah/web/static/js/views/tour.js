@@ -8,7 +8,7 @@ VIEWS.tour = m => {
 };
 async function tourSteps() {
   if (VIEW !== 'tour') return;
-  const st = await api('/api/tour_status', { id: RID }).catch(() => null); if (!st || VIEW !== 'tour') return;
+  const st = await api('/api/tour_status', { id: RID }).catch(() => null); if (!st || VIEW !== 'tour' || !$('#steps')) return;
   TOUR.chapters = st.chapters;
   $('#steps').innerHTML = st.chapters.map((c, k) => `<button data-ch="${c.key}" class="${c.key === TOUR.key ? 'on' : ''}"><span class="st">${st.ready.includes(c.key) ? '✓' : st.working.includes(c.key) ? '<span class="spin" style="width:10px;height:10px"></span>' : ''}</span><b>${k + 1}. ${esc(c.title)}</b>${esc(c.sub)}</button>`).join('');
   $('#steps').querySelectorAll('[data-ch]').forEach(b => b.onclick = () => loadChapter(b.dataset.ch));

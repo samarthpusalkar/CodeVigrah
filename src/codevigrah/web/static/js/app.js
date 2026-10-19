@@ -37,21 +37,33 @@ async function loadRecent() {
   const r = await api('/api/repos');
   $('#recent').innerHTML = '<option value="">Recent…</option>' + r.map(x => `<option value="${esc(x.id)}">${esc(x.id.replace('__', '/'))}</option>`).join('');
 }
+// Only one analysis is shown at a time. JOB.run identifies it: a polling loop whose run is no longer current stops
+// touching the page (pressing Enter twice, or starting another repo, used to leave two loops fighting over the log).
+const JOB = { run: 0, source: '' };
+function stopWatchingJob() { JOB.run++; JOB.source = ''; $('#go').disabled = $('#refresh').disabled = false; }
 async function analyze(refresh) {
-  const source = $('#src').value.trim(); if (!source) return;
-  $('#go').disabled = true;
-  $('#main').innerHTML = `<div class="card"><h3><span class="spin"></span> Analysing ${esc(source)}</h3><div class="log mono" id="joblog"></div></div>`;
+  const source = $('#src').value.trim(); if (!source || source === JOB.source) return;
+  const run = ++JOB.run; JOB.source = source;
+  $('#go').disabled = $('#refresh').disabled = true;
+  $('#main').innerHTML = `<div class="card"><h3><span class="spin"></span> Analysing ${esc(source)}</h3><div class="log mono" id="joblog">starting…</div></div>`;
   try {
     const { job } = await api('/api/analyze', { source, refresh });
-    while (true) {
-      await new Promise(r => setTimeout(r, 900));
+    let shown = 0, since = Date.now();
+    while (run === JOB.run) {
       const j = await api('/api/job?id=' + job);
-      $('#joblog').innerHTML = j.log.map(esc).join('<br>');
+      const log = $('#joblog'); if (run !== JOB.run || !log) break;
+      if (j.log.length > shown) {  // the log only grows: redraw it only when there is a new line
+        shown = j.log.length; since = Date.now();
+        log.innerHTML = j.log.map(esc).join('<br>') + ' <span class="muted" id="jobtick"></span>'; log.scrollTop = log.scrollHeight;
+      }
+      const secs = Math.round((Date.now() - since) / 1000), tick = $('#jobtick');
+      if (tick) tick.textContent = secs >= 3 ? `· ${secs} s` : '';  // slow steps (cloning a big repo) visibly keep going
       if (j.status === 'done') { await open(j.repo); loadRecent(); break; }
       if (j.status === 'error') throw new Error(j.error);
+      await new Promise(r => setTimeout(r, 900));
     }
-  } catch (e) { $('#main').innerHTML = `<div class="card flag"><h3>Analysis failed</h3><p>${esc(e.message)}</p></div>`; }
-  $('#go').disabled = false;
+  } catch (e) { if (run === JOB.run) $('#main').innerHTML = `<div class="card flag"><h3>Analysis failed</h3><p>${esc(e.message)}</p></div>`; }
+  if (run === JOB.run) { JOB.source = ''; $('#go').disabled = $('#refresh').disabled = false; }
 }
 async function open(id) {
   A = await api('/api/analysis?id=' + encodeURIComponent(id)); RID = id; FILES = {};

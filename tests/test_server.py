@@ -234,5 +234,25 @@ class AIServerTests(ServerCase):
         self.assertEqual(self.call('GET', '/api/settings')[1]['label'], 'OpenAI-compatible · stub')
 
 
+class JobTests(unittest.TestCase):
+    def test_a_second_request_joins_the_running_job(self):
+        from codevigrah.web.app import App
+
+        tmp = TempDir()
+        try:
+            app = App(Settings(workspace=tmp.path / 'ws'))
+            release = threading.Event()
+            app._run_job = lambda job, source, refresh: (job.update(status='running'), release.wait(10))
+            first = app.start_analysis('https://github.com/o/r')
+            self.assertEqual(app.start_analysis('https://github.com/o/r'), first)  # Enter pressed twice
+            self.assertNotEqual(app.start_analysis('https://github.com/o/r', refresh=True), first)
+            self.assertNotEqual(app.start_analysis('https://github.com/o/other'), first)
+            app.jobs[first]['status'] = 'done'
+            self.assertNotEqual(app.start_analysis('https://github.com/o/r'), first)  # finished: a new run starts
+            release.set()
+        finally:
+            tmp.cleanup()
+
+
 if __name__ == '__main__':
     unittest.main()
