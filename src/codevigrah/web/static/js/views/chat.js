@@ -10,13 +10,14 @@ VIEWS.chat = m => {
   m.querySelectorAll('[data-unpin]').forEach(a => a.onclick = () => { pins = pins.filter(p => p !== a.dataset.unpin); show('chat'); });
   m.scrollTop = m.scrollHeight;
 };
-const msgHtml = x => `<div class="msg ${x.role}">${x.role === 'assistant' ? '<a class="small listen-msg" style="float:right">▶ listen</a>' : ''}${x.role === 'user' ? esc(x.content).replace(/\n/g, '<br>') : md(x.content)}${x.sources?.length ? `<div class="small muted">context: ${x.sources.map(p => fl(p)).join(' · ')}</div>` : ''}</div>`;
+const msgHtml = (x, k) => `<div class="msg ${x.role}">${x.role === 'assistant' ? `<a class="small listen-msg" data-k="${k}" style="float:right">▶ listen</a>` : ''}${x.role === 'user' ? esc(x.content).replace(/\n/g, '<br>') : md(x.content)}${x.sources?.length ? `<div class="small muted">context: ${x.sources.map(p => fl(p)).join(' · ')}</div>` : ''}</div>`;
 async function chatSend(q) {
   if (VIEW !== 'chat') show('chat');
   chatMsgs.push({ role: 'user', content: q }); $('#chatlog').innerHTML = chatMsgs.map(msgHtml).join('') + '<div class="msg assistant"><span class="spin"></span> thinking…</div>';
   $('#main').scrollTop = $('#main').scrollHeight;
-  try { const r = await api('/api/chat', { id: RID, messages: chatMsgs.map(({ role, content }) => ({ role, content })), pin: pins }); chatMsgs.push({ role: 'assistant', content: r.answer, sources: r.sources }); }
+  try { const r = await api('/api/chat', { id: RID, messages: chatMsgs.map(({ role, content }) => ({ role, content })), pin: pins }); chatMsgs.push({ role: 'assistant', content: r.answer, sources: r.sources, sig: r.speech_sig }); }
   catch (e) { chatMsgs.push({ role: 'assistant', content: '**Error:** ' + e.message }); }
   store.set('chat:' + RID, chatMsgs.slice(-40)); $('#chatlog').innerHTML = chatMsgs.map(msgHtml).join(''); $('#main').scrollTop = $('#main').scrollHeight;
 }
-document.addEventListener('click', e => { const a = e.target.closest('.listen-msg'); if (a) ttsStart(a.parentElement.querySelector('.md')); });
+document.addEventListener('click', e => { const a = e.target.closest('.listen-msg'); if (!a) return; const m = chatMsgs[+a.dataset.k];
+  ttsStart(a.parentElement.querySelector('.md'), { source: m && m.sig ? { text: m.content, sig: m.sig } : null }); });

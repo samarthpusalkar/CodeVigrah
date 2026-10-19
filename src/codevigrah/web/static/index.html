@@ -34,9 +34,11 @@
   <button class="ghost" id="tnext" title="Next paragraph">⏭</button>
   <button class="ghost" id="tstop" title="Stop">⏹</button>
   <select id="trate" title="Speed"><option value="0.8">0.8×</option><option value="0.9">0.9×</option><option value="1">1×</option><option value="1.1">1.1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="1.75">1.75×</option></select>
-  <select id="tvoice" title="Voice"></select>
+  <select id="tvoice" title="Voice: natural voices are made on the server, the others on this device"></select>
+  <label class="small" id="tscriptwrap" title="Read a version rewritten for listening (the page keeps the written text). Untick to hear the page as written."><input type="checkbox" id="tscript"> for listening</label>
   <label class="small" id="tautowrap" title="When a tour chapter ends, continue with the next one"><input type="checkbox" id="tauto"> next chapter</label>
   <span class="now" id="tnow"></span>
+  <span class="small muted" id="tsrc"></span>
 </div>
 <div class="modal" id="settings"><div class="card">
   <h3>AI settings <span class="small muted" id="setver"></span></h3>

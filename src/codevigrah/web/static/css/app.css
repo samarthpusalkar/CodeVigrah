@@ -95,7 +95,8 @@ svg text{fill:var(--text)}
   display:none;gap:6px;align-items:center;z-index:25;box-shadow:0 6px 24px rgba(0,0,0,.35);flex-wrap:wrap;max-width:calc(100% - 24px)}
 #player button{padding:5px 10px}
 #player select{padding:4px 6px;font-size:12px;max-width:170px}
-#player .now{font-size:12px;color:var(--muted);max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#player .now{font-size:13px;color:var(--text);max-width:min(440px,90vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#player #tsrc{font-size:11px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .listen{background:transparent;color:var(--accent);border:1px solid var(--accent);font-weight:500;padding:4px 12px;font-size:13px}
 .q{border-left:3px solid var(--line)}
 .q.right{border-left-color:var(--good)}.q.wrong{border-left-color:var(--bad)}.q.part{border-left-color:var(--warn)}

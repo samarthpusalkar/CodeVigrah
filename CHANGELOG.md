@@ -5,6 +5,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Read-aloud for the ear: a listening script instead of the page text. Without AI, rules turn paths, identifiers, symbols,
+  code blocks, tables and Mermaid diagrams into speech; for tour chapters the AI writes a script for listening in the
+  background, cached per commit. The page keeps the written text and highlights the paragraph being heard.
+- Natural voices from a speech server (OpenAI-style `/v1/audio/speech`), cached per sentence, with the browser's voices as the
+  fallback. `contrib/speech-server/` runs Kokoro and Piper on a Raspberry Pi 5. `CODEVIGRAH_TTS_*` settings, an optional
+  background pre-voicing of tour chapters, and a per-visitor limit on fresh audio.
+- The player shows the sentence being spoken, which script is used, and a switch to compare it with the plain reading.
+
 ## [0.1.0] - 2026-10-19
 
 First public release.

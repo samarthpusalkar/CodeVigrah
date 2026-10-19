@@ -1,4 +1,4 @@
-"""Test fixtures: a tiny multi-language git repository and a stub OpenAI-compatible server."""
+"""Test fixtures: a tiny multi-language git repository, and stubs of an OpenAI-compatible AI server and speech server."""
 
 from __future__ import annotations
 
@@ -100,10 +100,12 @@ class TempDir:
 
 
 class StubOpenAI:
-    """A local server that answers /v1/chat/completions, recording each request. ``fail=True`` returns HTTP 500."""
+    """A local server that answers /v1/chat/completions, recording each request. ``fail=True`` returns HTTP 500.
+    ``answer`` may be a function of the request body, to answer different prompts differently."""
 
     def __init__(self, answer='stub answer', fail=False):
         self.requests: list[dict] = []
+        self.answer = answer
         stub = self
 
         class H(BaseHTTPRequestHandler):
@@ -118,12 +120,54 @@ class StubOpenAI:
                     self.end_headers()
                     self.wfile.write(b'{"error": "boom"}')
                     return
-                out = json.dumps({'choices': [{'message': {'content': answer}, 'finish_reason': 'stop'}]}).encode()
+                content = stub.answer(body) if callable(stub.answer) else stub.answer
+                out = json.dumps({'choices': [{'message': {'content': content}, 'finish_reason': 'stop'}]}).encode()
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Content-Length', str(len(out)))
                 self.end_headers()
                 self.wfile.write(out)
+
+        self.server = ThreadingHTTPServer(('127.0.0.1', 0), H)
+        self.url = f'http://127.0.0.1:{self.server.server_address[1]}/v1'
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+
+class StubSpeech:
+    """A local stand-in for a speech server (``/v1/audio/voices`` and ``/v1/audio/speech``) that records requests."""
+
+    AUDIO = b'ID3\x03 not really an mp3'
+
+    def __init__(self, voices=({'id': 'af_heart', 'name': 'Heart (US female, Kokoro)'}, 'bf_emma'), fail=False):
+        self.requests: list[dict] = []
+        stub = self
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def reply(self, code, body, ctype):
+                self.send_response(code)
+                self.send_header('Content-Type', ctype)
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_GET(self):
+                if self.path == '/v1/audio/voices' and voices is not None:
+                    return self.reply(200, json.dumps({'voices': list(voices)}).encode(), 'application/json')
+                self.reply(404, b'{"error": "not found"}', 'application/json')
+
+            def do_POST(self):
+                body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+                stub.requests.append({'path': self.path, 'auth': self.headers.get('Authorization'), 'body': body})
+                if fail:
+                    return self.reply(500, b'{"error": "boom"}', 'application/json')
+                self.reply(200, stub.AUDIO, 'audio/mpeg')
 
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), H)
         self.url = f'http://127.0.0.1:{self.server.server_address[1]}/v1'

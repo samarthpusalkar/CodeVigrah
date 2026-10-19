@@ -13,6 +13,9 @@ flowchart LR
   W --> T["tour.py / quiz.py / report.py"]
   T --> L["llm/: providers with fallback"]
   R --> L
+  W --> SP["speech/: listening scripts, speech-server client"]
+  SP --> L
+  SP --> TTS["speech server (optional, separate process)"]
   A --> WS[("workspace/: clones, analysis.json, cached AI output")]
   T --> WS
 ```
@@ -40,10 +43,12 @@ codevigrah/
 │   ├── tour.py, quiz.py     guided tour and skill check (prompts + static fallbacks)
 │   ├── report.py, prompts.py
 │   ├── llm/                 one module per AI provider + the router
+│   ├── speech/              read-aloud: speakable text, AI listening scripts, speech-server client
 │   └── web/                 HTTP server, API endpoints, app state, rate limiter, static UI
 ├── tests/                   unittest/pytest tests; helpers.py builds a fixture git repo
 ├── docs/                    documentation for users and contributors
 ├── deploy/                  examples for systemd and Caddy
+├── contrib/speech-server/   optional local text-to-speech server (Kokoro, Piper), in its own venv
 ├── .github/                 CI workflow, issue and pull request templates, Dependabot
 ├── pyproject.toml           package metadata, dependencies, entry point, ruff and pytest settings
 ├── Dockerfile, compose.yaml container image and a hosting setup
@@ -89,7 +94,8 @@ re-run automatically from the clone on disk.
   regex, file pattern), *why* the choice is made, and *what it costs* or *why it is hard to fix*.
 * **A new language's imports:** add a method to `Resolver` in `analysis/imports.py` and dispatch to it in `Resolver.imports()`.
 * **A new AI provider:** see [ai-providers.md](ai-providers.md#adding-a-provider).
-* **A new API endpoint:** a function decorated with `@route('POST', '/api/...')` in `web/api.py`.
+* **A new API endpoint:** a function decorated with `@route('POST', '/api/...')` in `web/api.py`. Return a dict for JSON, or
+  `Raw(bytes, content_type)` for anything else (audio).
 * **A new view:** a file in `web/static/js/views/` that sets `VIEWS.<name> = main => { ... }`, a `<script>` tag in `index.html`
   (before `inspector.js`), and an entry in `NAV` in `js/app.js`.
 

@@ -3,8 +3,9 @@
 <workspace>/<repo id>/
     repo/           the clone (absent for local folders)
     analysis.json   output of the analyzer
-    tour/           AI-written tour chapters, cached per commit
+    tour/           AI-written tour chapters and their listening scripts, cached per commit
     quiz/           AI-written skill checks, cached per commit
+    audio/          read-aloud audio from the speech server, one file per sentence and voice
 """
 
 from __future__ import annotations

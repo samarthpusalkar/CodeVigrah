@@ -37,7 +37,7 @@ Requirements: Python 3.10+, git, and a modern browser. Linux and macOS are suppo
 
 | View | What it is for |
 |---|---|
-| **Guided tour** | Six short chapters that go progressively deeper: the 2-minute version, one real operation traced through the code, the parts, why it is built this way, where it gets hard, and exercises. Written by AI from the code, with diagrams, cached per commit. **Listen** reads it aloud. |
+| **Guided tour** | Six short chapters that go progressively deeper: the 2-minute version, one real operation traced through the code, the parts, why it is built this way, where it gets hard, and exercises. Written by AI from the code, with diagrams, cached per commit. **Listen** reads a version rewritten for the ear, with natural voices if you run the speech server ([docs/speech.md](docs/speech.md)). |
 | **Skill check** | Three levels (Reader, Contributor, Owner) of multiple-choice questions and "which files would change?" exercises, some from the project's real commits. Results break down by skill and by kind of knowledge (this repo, language, system design, domain). |
 | **At a glance** | Brief, languages, frameworks, detected domain with evidence, entry points, recent history, README. |
 | **Architecture** | Modules arranged by dependency level, import cycles, a dependency structure matrix, and hidden coupling from git history. |
@@ -81,6 +81,13 @@ never sent to the browser.
 Put HTTPS in front with Caddy or a Cloudflare Tunnel. Remember that **you pay for the AI your visitors use**.
 See [docs/deployment.md](docs/deployment.md) for a Raspberry Pi service, Docker, and putting it on your own domain.
 
+## Read-aloud
+
+**Listen** never reads the page as written: file paths, code, diagrams and lists are turned into speech, and for tour chapters
+the AI writes a listening script (short sentences, spoken signposts, diagrams described in words) while the page keeps the
+written text and highlights what is being said. Voices come from your browser, or from a small speech server with natural
+Kokoro and Piper voices that runs on the Pi itself (`contrib/speech-server/`). See [docs/speech.md](docs/speech.md).
+
 ## Privacy and safety
 
 * **Nothing from an analysed repository is ever executed.** Python is parsed with `ast`, other languages with regular expressions.
@@ -105,6 +112,7 @@ src/codevigrah/
   retrieval.py BM25 search, change localisation, and context packing for AI prompts
   tour.py, quiz.py, report.py   the guided tour, skill check and Markdown report
   llm/         AI providers behind one interface, with fallback
+  speech/      read-aloud: speakable text, AI listening scripts, a client for speech servers
   web/         stdlib HTTP server, JSON API, and the single-page UI (vanilla JS + d3)
 ```
 

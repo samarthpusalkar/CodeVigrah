@@ -20,7 +20,7 @@ async function openFile(path, line) {
   $('#dpin').onclick = () => { if (!pins.includes(path)) pins.push(path); $('#dpin').textContent = 'Pinned ✓'; };
   $('#dplan').onclick = () => { dr.classList.remove('open'); show('planner'); $('#issue').value = `Change ${path}: `; $('#issue').focus(); };
   $('#dexp').onclick = async () => { $('#dai').innerHTML = '<div class="card"><span class="spin"></span> asking…</div>';
-    try { const r = await api('/api/explain', { id: RID, path, ai: true }); $('#dai').innerHTML = `<div class="card">${r.ai ? '<a class="small" id="dlisten">▶ listen</a>' + md(r.ai) : esc(r.ai_error || 'no answer')}</div>`; const dl = $('#dlisten'); if (dl) dl.onclick = () => ttsStart($('#dai .md')); } catch (e) { $('#dai').innerHTML = `<div class="card flag">${esc(e.message)}</div>`; } };
+    try { const r = await api('/api/explain', { id: RID, path, ai: true }); $('#dai').innerHTML = `<div class="card">${r.ai ? '<a class="small" id="dlisten">▶ listen</a>' + md(r.ai) : esc(r.ai_error || 'no answer')}</div>`; const dl = $('#dlisten'); if (dl) dl.onclick = () => ttsStart($('#dai .md'), { source: r.ai_sig ? { text: r.ai, sig: r.ai_sig } : null }); } catch (e) { $('#dai').innerHTML = `<div class="card flag">${esc(e.message)}</div>`; } };
   const { text } = await api(`/api/file?id=${encodeURIComponent(RID)}&path=${encodeURIComponent(path)}`);
   const lines = text.split('\n');
   $('#dcode').innerHTML = `<table>${lines.map((l, k) => `<tr id="L${k + 1}" class="${+line === k + 1 ? 'hl' : ''}"><td class="ln">${k + 1}</td><td>${esc(l)}</td></tr>`).join('')}</table>`;

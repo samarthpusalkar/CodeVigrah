@@ -1,4 +1,6 @@
 // A small Markdown renderer. Everything is escaped; repository paths become links to the inspector.
+// Each block carries data-ln, the source line it starts on, so read-aloud can highlight what it is saying
+// (speech/text.py numbers blocks the same way).
 function fileRef(raw) {
   const m = raw.match(/^([\w./@+\-\[\]()]+?)(?::(\d+))?(?:-\d+)?$/);
   if (m && !FILES[m[1]] && BASE[m[1]]) return `<a data-path="${esc(BASE[m[1]])}" data-line="${m[2]||''}"><code>${esc(raw)}</code></a>`;
@@ -23,17 +25,17 @@ function linkPaths(s, escaped) {
   return s.replace(/(^|[\s(,;:])([\w.\-@+\[\]]+(?:\/[\w.\-@+\[\]()]+)+\.\w+)(?::(\d+))?/g, (m, pre, p, ln) =>
     FILES[p] ? `${pre}<a data-path="${p}" data-line="${ln||''}">${p}${ln ? ':' + ln : ''}</a>` : m);
 }
-function md(src) {
+function md(src, off = 0) {
   const L = String(src || '').split('\n'); const out = []; let i = 0;
   while (i < L.length) {
-    let l = L[i];
+    let l = L[i]; const ln = ` data-ln="${i + off}"`;
     if (/^```/.test(l)) { const lang = l.slice(3).trim().toLowerCase(); const buf = []; i++; while (i < L.length && !/^```/.test(L[i])) buf.push(L[i++]); i++;
-      const code = `<pre><code>${esc(buf.join('\n'))}</code></pre>`;
-      out.push(lang === 'mermaid' ? `<div class="diagram" data-src="${esc(buf.join('\n'))}">${code}</div>` : code); continue; }
-    const h = l.match(/^(#{1,4})\s+(.*)/); if (h) { out.push(`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`); i++; continue; }
+      const code = `<pre${lang === 'mermaid' ? '' : ln}><code>${esc(buf.join('\n'))}</code></pre>`;
+      out.push(lang === 'mermaid' ? `<div class="diagram"${ln} data-src="${esc(buf.join('\n'))}">${code}</div>` : code); continue; }
+    const h = l.match(/^(#{1,4})\s+(.*)/); if (h) { out.push(`<h${h[1].length}${ln}>${inline(h[2])}</h${h[1].length}>`); i++; continue; }
     if (/^\s*\|/.test(l)) { const rows = []; while (i < L.length && /^\s*\|/.test(L[i])) rows.push(L[i++]);
       const cells = r => r.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
-      let html = '<table>'; rows.forEach((r, k) => { if (/^\s*\|?\s*:?-{2,}/.test(r)) return; const tag = k === 0 ? 'th' : 'td'; html += '<tr>' + cells(r).map(c => `<${tag}>${inline(c)}</${tag}>`).join('') + '</tr>'; });
+      let html = `<table${ln}>`; rows.forEach((r, k) => { if (/^\s*\|?\s*:?-{2,}/.test(r)) return; const tag = k === 0 ? 'th' : 'td'; html += '<tr>' + cells(r).map(c => `<${tag}>${inline(c)}</${tag}>`).join('') + '</tr>'; });
       out.push(html + '</table>'); continue; }
     if (/^\s*([-*]|\d+\.)\s+/.test(l)) { const ordered = /^\s*\d+\./.test(l); const items = []; const start = ordered ? parseInt(l) || 1 : 1;
       const isItem = x => /^\s*([-*]|\d+\.)\s+/.test(x) && /^\s*\d+\./.test(x) === ordered;
@@ -45,15 +47,15 @@ function md(src) {
             items[items.length - 1] = items[items.length - 1].replace(/<\/li>$/, `<p>${inline(para.join(' '))}</p></li>`); i = j; continue; }
           break; }
         if (!isItem(L[i])) break;
-        let it = L[i++].replace(/^\s*([-*]|\d+\.)\s+/, ''); const cb = it.match(/^\[( |x)\]\s*/i);
-        items.push(cb ? `<li style="list-style:none"><input type="checkbox" disabled ${cb[1] !== ' ' ? 'checked' : ''}> ${inline(it.slice(cb[0].length))}</li>` : `<li>${inline(it)}</li>`);
+        const at = ` data-ln="${i + off}"`; let it = L[i++].replace(/^\s*([-*]|\d+\.)\s+/, ''); const cb = it.match(/^\[( |x)\]\s*/i);
+        items.push(cb ? `<li${at} style="list-style:none"><input type="checkbox" disabled ${cb[1] !== ' ' ? 'checked' : ''}> ${inline(it.slice(cb[0].length))}</li>` : `<li${at}>${inline(it)}</li>`);
         while (i < L.length && /^\s{2,}\S/.test(L[i]) && !/^\s*([-*]|\d+\.)\s+/.test(L[i])) items[items.length - 1] = items[items.length - 1].replace(/<\/li>$/, ' ' + inline(L[i++].trim()) + '</li>'); }
       out.push(ordered ? `<ol start="${start}">${items.join('')}</ol>` : `<ul>${items.join('')}</ul>`); continue; }
-    if (/^\s*>/.test(l)) { const buf = []; while (i < L.length && /^\s*>/.test(L[i])) buf.push(L[i++].replace(/^\s*>\s?/, ''));
-      const body = md(buf.join('\n')); out.push(/^\s*\*\*A[:.]/.test(buf[0]) ? `<details><summary>Show answer</summary>${body}</details>` : `<blockquote>${body}</blockquote>`); continue; }
+    if (/^\s*>/.test(l)) { const start = i; const buf = []; while (i < L.length && /^\s*>/.test(L[i])) buf.push(L[i++].replace(/^\s*>\s?/, ''));
+      const body = md(buf.join('\n'), start + off); out.push(/^\s*\*\*A[:.]/.test(buf[0]) ? `<details${ln}><summary>Show answer</summary>${body}</details>` : `<blockquote${ln}>${body}</blockquote>`); continue; }
     if (!l.trim()) { i++; continue; }
     const buf = []; while (i < L.length && L[i].trim() && !/^(#{1,4}\s|```|\s*\||\s*>|\s*([-*]|\d+\.)\s+)/.test(L[i])) buf.push(L[i++]);
-    out.push(`<p>${inline(buf.join(' '))}</p>`);
+    out.push(`<p${ln}>${inline(buf.join(' '))}</p>`);
   }
   return `<div class="md">${out.join('')}</div>`;
 }

@@ -82,6 +82,9 @@ class Settings:
     clone_depth: int = 1000  # commits of history to fetch
     rate_ai_per_hour: int = 0  # per client IP; 0 = unlimited
     rate_analyze_per_hour: int = 0
+    rate_tts_per_hour: int = 0  # sentences voiced fresh by the speech server (cached ones are free)
+    listen_scripts: bool = True  # AI-written listening scripts for tour chapters, when an AI provider is set up
+    tts_prepare: bool = False  # voice whole tour chapters in the background, so listening never waits for the server
     log_level: str = 'INFO'
 
     @property
@@ -104,6 +107,8 @@ class Settings:
             'max_jobs': max(1, env_int(env, 'CODEVIGRAH_MAX_JOBS', cls.max_jobs)),
             'max_repo_mb': env_int(env, 'CODEVIGRAH_MAX_REPO_MB', cls.max_repo_mb),
             'clone_depth': max(1, env_int(env, 'CODEVIGRAH_CLONE_DEPTH', cls.clone_depth)),
+            'listen_scripts': env_bool(env, 'CODEVIGRAH_LISTEN_SCRIPTS', cls.listen_scripts),
+            'tts_prepare': env_bool(env, 'CODEVIGRAH_TTS_PREPARE', cls.tts_prepare),
             'log_level': env_str(env, 'CODEVIGRAH_LOG_LEVEL', cls.log_level).upper() or 'INFO',
         }
         values.update({k: v for k, v in overrides.items() if v is not None and k != 'allow_local_paths'})
@@ -111,6 +116,7 @@ class Settings:
         # Public instances get rate limits unless the operator chose numbers explicitly.
         values['rate_ai_per_hour'] = env_int(env, 'CODEVIGRAH_RATE_AI_PER_HOUR', 30 if public else 0)
         values['rate_analyze_per_hour'] = env_int(env, 'CODEVIGRAH_RATE_ANALYZE_PER_HOUR', 10 if public else 0)
+        values['rate_tts_per_hour'] = env_int(env, 'CODEVIGRAH_RATE_TTS_PER_HOUR', 600 if public else 0)
         # Local folders can only be analysed from this machine, unless explicitly allowed (never when public).
         explicit = overrides.get('allow_local_paths')
         if explicit is None:

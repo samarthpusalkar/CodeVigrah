@@ -15,7 +15,7 @@ from urllib.parse import parse_qs, urlparse
 
 from .. import __version__
 from ..config import LOOPBACK, Settings
-from .api import ROUTES, HttpError, Request
+from .api import ROUTES, HttpError, Raw, Request
 from .app import App
 
 log = logging.getLogger(__name__)
@@ -34,7 +34,8 @@ CONTENT_TYPES = {
 }
 CSP = (
     "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
-    "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; "
+    "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; "
+    "connect-src 'self'; "
     "object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
 )
 SECURITY_HEADERS = {
@@ -74,8 +75,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header('Content-Type', ctype)
         self.send_header('Content-Length', str(len(body)))
-        self.send_header('Cache-Control', 'no-cache')
-        for k, v in {**SECURITY_HEADERS, **(headers or {})}.items():
+        for k, v in {'Cache-Control': 'no-cache', **SECURITY_HEADERS, **(headers or {})}.items():
             self.send_header(k, v)
         self.end_headers()
         if self.command != 'HEAD':
@@ -164,7 +164,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.read_json() if method == 'POST' else {},
                 self.client_ip(),
             )
-            self.send_json(fn(self.app, req))
+            res = fn(self.app, req)
+            if isinstance(res, Raw):
+                return self.send_body(200, res.body, res.content_type, res.headers)
+            self.send_json(res)
         except HttpError as e:
             self.send_json({'error': e.message}, e.status, e.headers)
         except (BrokenPipeError, ConnectionResetError):

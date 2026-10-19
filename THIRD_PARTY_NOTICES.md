@@ -23,6 +23,10 @@ include their license texts next to the files.
 ## External tools and services
 
 * **git** is called as a separate program to clone and read repository history.
+* **The optional speech server** (`contrib/speech-server/`) is a separate program that you install into its own virtual
+  environment. Its dependencies are not part of CodeVigrah and keep their own licenses: kokoro-onnx (MIT), the Kokoro-82M
+  model and voices (Apache-2.0), onnxruntime (MIT), piper-tts and espeak-ng (GPL-3.0), and each Piper voice under the license
+  in its model card. CodeVigrah talks to it only over HTTP.
 * **Claude Code**, **Ollama**, **Groq** and other AI providers are separate products with their own terms. CodeVigrah talks to them
   only when you configure them.
 

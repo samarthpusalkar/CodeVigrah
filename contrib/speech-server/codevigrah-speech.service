@@ -1,0 +1,17 @@
+# The speech server as a systemd user service (next to deploy/codevigrah.service). Install:
+#   cp contrib/speech-server/codevigrah-speech.service ~/.config/systemd/user/
+#   edit the two paths below if your checkout or SPEECH_DATA live elsewhere, then:
+#   systemctl --user daemon-reload && systemctl --user enable --now codevigrah-speech
+[Unit]
+Description=CodeVigrah speech server (Kokoro and Piper text-to-speech)
+After=network-online.target
+
+[Service]
+ExecStart=%h/.local/share/codevigrah-speech/venv/bin/python %h/CodeVigrah/contrib/speech-server/speech_server.py --preload af_heart
+Restart=on-failure
+RestartSec=5
+# Keep the web server responsive while a long chapter is being voiced.
+Nice=5
+
+[Install]
+WantedBy=default.target

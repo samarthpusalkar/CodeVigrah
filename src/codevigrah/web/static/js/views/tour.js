@@ -33,7 +33,7 @@ async function loadChapter(key, regenerate) {
     body.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => loadChapter(b.dataset.ch));
     body.querySelectorAll('[data-view]').forEach(b => b.onclick = () => show(b.dataset.view));
     const rg = $('#regen'); if (rg) rg.onclick = () => loadChapter(key, true);
-    const listen = () => ttsStart($('#chtext'), { tour: true, onFinish: () => { if (nx && $('#tauto').checked && VIEW === 'tour') loadChapter(nx.key).then(() => { if (TOUR.key === nx.key) listen2(); }); } });
+    const listen = () => ttsStart($('#chtext'), { tour: true, source: { chapter: key }, onFinish: () => { if (nx && $('#tauto').checked && VIEW === 'tour') loadChapter(nx.key).then(() => { if (TOUR.key === nx.key) listen2(); }); } });
     const listen2 = () => { const b = $('#listen'); if (b) b.click(); };
     $('#listen').onclick = listen;
     $('#askch').onclick = e => { e.stopPropagation(); show('chat'); $('#ask').value = e.target.dataset.ask; $('#ask').focus(); };

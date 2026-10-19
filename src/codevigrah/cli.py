@@ -10,7 +10,7 @@ import logging
 import sys
 from pathlib import Path
 
-from . import __version__, llm
+from . import __version__, llm, speech
 from .config import Settings, load_dotenv
 
 
@@ -71,6 +71,11 @@ def serve(settings: Settings) -> int:
         f'CodeVigrah {__version__} on http://{settings.host}:{settings.port}  ({mode}; AI: {llm.describe() or "off"})',
         flush=True,
     )
+    tts = speech.engine()
+    if tts.base_url:
+        voices = tts.voice_ids()
+        status = f'{len(voices)} voices at {tts.base_url}' if voices else f'{tts.base_url} is not answering yet'
+        print(f'  Read-aloud: natural voices, {status}', flush=True)
     if not settings.is_loopback and not settings.public:
         print(
             '  Listening on the network without --public: anyone who can reach this port can change AI settings.',
@@ -127,6 +132,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     try:
         llm.configure(public=settings.public)
+        speech.configure()
     except ValueError as e:
         print(f'error: {e}', file=sys.stderr)
         return 2

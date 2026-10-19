@@ -1,4 +1,5 @@
-"""JSON API endpoints. Each handler takes ``(app, request)`` and returns a JSON-serialisable object.
+"""JSON API endpoints. Each handler takes ``(app, request)`` and returns a JSON-serialisable object
+(or :class:`Raw` bytes, such as audio).
 
 Register a handler with ``@route(METHOD, PATH)``; raise :class:`HttpError` for client errors.
 """
@@ -9,12 +10,13 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from .. import __version__, llm, prompts, quiz, tour
+from .. import __version__, llm, prompts, quiz, speech, tour
 from ..report import md_report
 from ..sources import SourceError, normalise
 from .app import App
 
 MAX_CHAT_CHARS = 20_000  # per message
+MAX_SPEECH_CHARS = 200_000  # a signed text to read aloud (a long report)
 ROUTES: dict[tuple[str, str], Callable[[App, Request], object]] = {}
 
 
@@ -25,6 +27,15 @@ class Request:
     query: dict = field(default_factory=dict)
     body: dict = field(default_factory=dict)
     client: str = ''
+
+
+@dataclass
+class Raw:
+    """A non-JSON response body."""
+
+    body: bytes
+    content_type: str
+    headers: dict = field(default_factory=dict)
 
 
 class HttpError(Exception):
@@ -52,11 +63,12 @@ def repo_or_404(app: App, rid: str) -> dict:
 
 
 def rate_limit(app: App, req: Request, bucket: str) -> None:
-    """Raise 429 when this client has used up its hourly allowance for ``bucket`` ('ai' or 'analyze')."""
-    limit = app.settings.rate_ai_per_hour if bucket == 'ai' else app.settings.rate_analyze_per_hour
+    """Raise 429 when this client has used up its hourly allowance for ``bucket`` ('ai', 'analyze' or 'tts')."""
+    s = app.settings
+    limit = {'ai': s.rate_ai_per_hour, 'analyze': s.rate_analyze_per_hour, 'tts': s.rate_tts_per_hour}[bucket]
     if not app.limiter.allow(bucket, req.client, limit):
         wait = app.limiter.retry_after(bucket, req.client)
-        what = 'AI requests' if bucket == 'ai' else 'analyses'
+        what = {'ai': 'AI requests', 'analyze': 'analyses', 'tts': 'sentences read aloud'}[bucket]
         raise HttpError(
             429,
             f'Too many {what} from your address; try again in {max(1, wait // 60)} min.',
@@ -158,6 +170,8 @@ def get_chapter(app: App, req: Request):
         res = app.chapter(rid, key, regenerate)
     except llm.LLMError as e:
         res = {'markdown': tour.STATIC[key](r['a'], r['index']), 'source': 'static', 'error': str(e)}
+    if not (res['source'] == 'ai' and app.prefetch_listen(rid, key)):
+        app.prevoice(rid, key)  # the script is final (no AI one on its way): voice it ahead if configured
     if keys.index(key) + 1 < len(keys):
         app.prefetch(rid, keys[keys.index(key) + 1])
     if key in ('why', 'limits', 'practice'):
@@ -169,11 +183,12 @@ def get_chapter(app: App, req: Request):
 def tour_status(app: App, req: Request):
     rid = req.body.get('id', '')
     r = repo_or_404(app, rid)
+    keys = [c['key'] for c in tour.CHAPTERS]
     return {
         'chapters': chapter_list(),
         'ready': tour.cached_keys(r['a'], app.work),
         'ai': llm.available(),
-        'working': app.working(rid),
+        'working': [k for k in app.working(rid) if k in keys],  # chapters being written (not scripts or audio)
     }
 
 
@@ -257,6 +272,7 @@ def explain(app: App, req: Request):
             info['ai'] = llm.complete(
                 prompts.SYSTEM, [{'role': 'user', 'content': prompt}], 2500, cwd=r['a']['meta']['root']
             )
+            info['ai_sig'] = app.sign(info['ai'])
         except llm.LLMError as e:
             info['ai_error'] = str(e)
     return info
@@ -290,13 +306,14 @@ def chat(app: App, req: Request):
         ]
         if loc['ripple']:
             lines += ['', '**Connected files:**'] + [f'- `{x["path"]}`: {x["reasons"][0]}' for x in loc['ripple'][:5]]
-        return {'answer': '\n'.join(lines), 'sources': sources}
+        answer = '\n'.join(lines)
+        return {'answer': answer, 'sources': sources, 'speech_sig': app.sign(answer)}
     rate_limit(app, req, 'ai')
     try:
         ans = llm.complete(prompts.SYSTEM + '\n\n# Repository context\n' + ctx, msgs, 3000, cwd=r['a']['meta']['root'])
     except llm.LLMError as e:
         raise HttpError(502, str(e)) from None
-    return {'answer': ans, 'sources': sources}
+    return {'answer': ans, 'sources': sources, 'speech_sig': app.sign(ans)}
 
 
 @route('POST', '/api/report')
@@ -318,4 +335,54 @@ def report(app: App, req: Request):
                 )
             except llm.LLMError as e:
                 narrative = f'_AI narrative failed: {e}_'
-    return {'markdown': md_report(r['a'], narrative)}
+    text = md_report(r['a'], narrative)
+    return {'markdown': text, 'speech_sig': app.sign(text)}
+
+
+# ------------------------------------------------------------------ read-aloud
+@route('POST', '/api/speech')
+def speech_script(app: App, req: Request):
+    """The listening script for a tour chapter, or for a text this server signed (chat answer, report, explanation)."""
+    rid = req.body.get('id', '')
+    repo_or_404(app, rid)
+    plain = bool(req.body.get('plain'))
+    if req.body.get('chapter') is not None:
+        key = str(req.body['chapter'])
+        if key not in [c['key'] for c in tour.CHAPTERS]:
+            raise HttpError(400, 'unknown chapter')
+        res = app.speech_script(rid, chapter=key, plain=plain)
+    else:
+        text = req.body.get('text')
+        if not isinstance(text, str) or not text or len(text) > MAX_SPEECH_CHARS:
+            raise HttpError(400, 'send a chapter, or a text with its signature')
+        if not app.signed(text, req.body.get('sig', '')):
+            raise HttpError(403, 'this text was not written by this server (or the server restarted)')
+        res = app.speech_script(rid, text=text)
+    return res | {'tts': speech.engine().available()}
+
+
+@route('GET', '/api/speech/audio')
+def speech_audio(app: App, req: Request):
+    """One part (about a sentence) of a prepared script, voiced by the speech server and cached."""
+    q = req.query
+    rid = q.get('id', '')
+    repo_or_404(app, rid)
+    eng = speech.engine()
+    voice = q.get('voice') or eng.default_voice()
+    if not eng.available():
+        raise HttpError(404, 'no speech server is configured')
+    if voice not in eng.voice_ids():
+        raise HttpError(400, 'unknown voice')
+    text = app.script_part(rid, q.get('sid', ''), int_arg(q.get('seg'), 0), int_arg(q.get('part'), 0))
+    if text is None:
+        raise HttpError(404, 'script expired; prepare it again')
+    folder = app.ws.repo_dir(rid) / 'audio'
+    hit = eng.cached(folder, text, voice)
+    if hit is None:
+        rate_limit(app, req, 'tts')
+        try:
+            hit = eng.speak(folder, text, voice)
+        except speech.SpeechError as e:
+            raise HttpError(502, str(e)) from None
+    data, ctype = hit
+    return Raw(data, ctype, {'Cache-Control': 'private, max-age=86400'})

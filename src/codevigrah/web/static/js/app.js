@@ -23,7 +23,7 @@ async function refreshSettings() {
   const order = ['auto', 'off'].includes(s.order) ? [s.order] : s.order.split(',').filter(Boolean);
   $('#provider').innerHTML = '<option value="auto">Automatic: first available, the rest as fallback</option><option value="off">Off (static mode, no AI)</option>' + s.providers.map(p => `<option value="${esc(p.name)}">${esc(p.label)}</option>`).join('');
   $('#provider').value = order[0] || 'auto'; $('#fallback').checked = order.length > 1;
-  fillProvider();
+  fillProvider(); ttsVoices();
 }
 function fillProvider() {
   const p = SETTINGS && SETTINGS.providers.find(x => x.name === $('#provider').value);

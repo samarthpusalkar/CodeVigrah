@@ -73,7 +73,9 @@ Keep CodeVigrah itself listening on `127.0.0.1` (or the Docker port bound to `12
   costs at zero. Cached tour chapters and quizzes are shared by everyone, so popular repositories cost nothing after the first visit.
 * **Disk.** Each analysed repository is cloned into the workspace. `CODEVIGRAH_MAX_REPO_MB` rejects big ones. Clean up old ones
   from time to time, e.g. a cron job that deletes workspace folders not modified for 30 days.
-* **CPU.** `CODEVIGRAH_MAX_JOBS` limits how many analyses run at once; the rest wait in a queue.
+* **CPU.** `CODEVIGRAH_MAX_JOBS` limits how many analyses run at once; the rest wait in a queue. A speech server on the same
+  Pi uses every core while it voices a sentence: visitors get 600 fresh sentences per hour each (`CODEVIGRAH_RATE_TTS_PER_HOUR`),
+  replays of cached audio are free, and only text the server wrote itself is ever voiced ([speech.md](speech.md)).
 * **Shared results.** In public mode every visitor sees the list of analysed repositories. Local folders are never listed.
 * **Terms.** Check that your AI provider's terms allow serving other people with your account.
 
