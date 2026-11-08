@@ -7,7 +7,8 @@ Every tour chapter, chat answer, file explanation and report has a **Listen** bu
    *listening script* instead.
 2. **Who says it.** By default the browser speaks with the voices of the device you are using. On many systems (Chrome or
    Firefox on Linux, for example) that is eSpeak, which sounds robotic. With a **speech server**, natural neural voices are
-   made on your own machine instead.
+   made on your own machines instead: Kokoro on a Pi, or Phonon through Ollama on a GPU machine, with the next server (and
+   finally the device's voices) taking over when one does not answer.
 
 ## How it works
 
@@ -17,7 +18,7 @@ flowchart LR
   A --> S["listening script: segments with source lines, split into sentences"]
   S -->|"natural voice"| V["GET /api/speech/audio, one sentence at a time"]
   V --> C[("workspace/repo/audio/: cached per sentence and voice")]
-  V --> T["speech server: Kokoro or Piper"]
+  V --> T["speech servers in order, e.g. Phonon on Ollama, then Kokoro or Piper"]
   S -->|"device voice"| B["browser speechSynthesis"]
 ```
 
@@ -130,8 +131,9 @@ own API, which CodeVigrah does not speak yet; a provider for them would go in `s
 | `CODEVIGRAH_TTS_OLLAMA_VOICE` | Ollama's first voice | |
 | `CODEVIGRAH_TTS_OLLAMA_VOICES` | all of the model's voices | comma-separated voices to offer |
 
-The settings above `CODEVIGRAH_TTS_OLLAMA_*` apply to every server in the list except `ollama`; the format, key and timeout
-of `ollama` are fixed (WAV, none) or shared (timeout).
+`CODEVIGRAH_TTS_API_KEY`, `_MODEL`, `_VOICE`, `_VOICES` and `_FORMAT` apply to every server in the list except `ollama`,
+which has its own `CODEVIGRAH_TTS_OLLAMA_*` settings, always asks for WAV and sends no key. The other settings apply to all
+servers.
 
 ## Keyboard
 
@@ -160,3 +162,8 @@ it. That keeps CodeVigrah's code MIT-licensed and free of dependencies. The serv
 `kokoro-onnx` (MIT), Kokoro-82M weights (Apache-2.0), espeak-ng through `espeakng-loader` and `piper-tts` (GPL-3.0). Each Piper
 voice was trained on a dataset with its own license, written in its `MODEL_CARD`; `setup.sh` installs only voices with
 permissive licenses. Some popular Piper voices (`ryan`, `hfc_female`) are non-commercial only (CC BY-NC-SA).
+
+Models served by Ollama are downloaded by you and keep their own licenses (`ollama show <model> --license`): Phonon's default
+English model (`phonon`, `31m-en`) is Apache-2.0, but its 40M models (`40m-en`, French, German, Spanish, Portuguese and
+`multilingual`) are CC BY-NC 4.0, non-commercial only. `lfm3-audio` is under the LFM Open License v1.0: commercial use only
+for organisations under 10 million US dollars of annual revenue.

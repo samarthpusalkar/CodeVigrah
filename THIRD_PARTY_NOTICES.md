@@ -27,6 +27,9 @@ include their license texts next to the files.
   environment. Its dependencies are not part of CodeVigrah and keep their own licenses: kokoro-onnx (MIT), the Kokoro-82M
   model and voices (Apache-2.0), onnxruntime (MIT), piper-tts and espeak-ng (GPL-3.0), and each Piper voice under the license
   in its model card. CodeVigrah talks to it only over HTTP.
+* **Speech models served by Ollama** (Phonon, lfm3-audio) are downloaded by the user and keep their own licenses: Phonon's
+  default English model is Apache-2.0, its 40M models are CC BY-NC 4.0 (non-commercial only), and lfm3-audio is under the LFM
+  Open License v1.0 (commercial use only below 10 million US dollars of annual revenue). See [docs/speech.md](docs/speech.md#licenses).
 * **Claude Code**, **Ollama**, **Groq** and other AI providers are separate products with their own terms. CodeVigrah talks to them
   only when you configure them.
 

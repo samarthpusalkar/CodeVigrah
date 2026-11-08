@@ -85,8 +85,9 @@ See [docs/deployment.md](docs/deployment.md) for a Raspberry Pi service, Docker,
 
 **Listen** never reads the page as written: file paths, code, diagrams and lists are turned into speech, and for tour chapters
 the AI writes a listening script (short sentences, spoken signposts, diagrams described in words) while the page keeps the
-written text and highlights what is being said. Voices come from your browser, or from a small speech server with natural
-Kokoro and Piper voices that runs on the Pi itself (`contrib/speech-server/`). See [docs/speech.md](docs/speech.md).
+written text and highlights what is being said. Natural voices come from speech servers you run, tried in order: for example
+Phonon through Ollama on a GPU machine, then the small Kokoro and Piper server in `contrib/speech-server/` (it runs on a Pi),
+then your browser's own voices. Space, j, k and l work as on YouTube. See [docs/speech.md](docs/speech.md).
 
 ## Privacy and safety
 
