@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from codevigrah.config import Settings, load_dotenv
+from codevigrah.config import Settings, load_dotenv, ollama_base_url
 from helpers import TempDir
 
 
@@ -69,3 +69,22 @@ class SettingsTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class OllamaHostTests(unittest.TestCase):
+    def test_ollama_host_forms(self):
+        cases = {
+            '192.168.1.50:11434': 'http://192.168.1.50:11434/v1',
+            '192.168.1.50': 'http://192.168.1.50:11434/v1',
+            'http://gpu.local:9000/': 'http://gpu.local:9000/v1',
+            'https://ollama.example.com': 'https://ollama.example.com:443/v1',
+            '0.0.0.0:11434': 'http://127.0.0.1:11434/v1',  # the server's bind address means this machine
+            '[::1]:11434': 'http://[::1]:11434/v1',
+        }
+        for host, url in cases.items():
+            self.assertEqual(ollama_base_url({'OLLAMA_HOST': host}), url, host)
+
+    def test_explicit_base_url_wins_and_unset_gives_the_default(self):
+        env = {'OLLAMA_HOST': 'a:1', 'CODEVIGRAH_OLLAMA_BASE_URL': 'http://b:2/v1/'}
+        self.assertEqual(ollama_base_url(env), 'http://b:2/v1')
+        self.assertEqual(ollama_base_url({}, 'fallback'), 'fallback')

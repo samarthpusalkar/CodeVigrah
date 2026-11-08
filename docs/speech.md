@@ -70,6 +70,21 @@ To keep it running, install `contrib/speech-server/codevigrah-speech.service` ne
 
 CodeVigrah speaks the OpenAI-style `POST /v1/audio/speech` API, so the same settings work with:
 
+* **Ollama** (0.40.13 or later) on a GPU machine. Pull its speech model there with `ollama pull lfm3-audio`, then:
+
+  ```bash
+  OLLAMA_HOST=192.168.1.50:11434       # the Ollama machine; the Ollama AI provider uses the same setting
+  CODEVIGRAH_TTS_BASE_URL=ollama       # = that server, with model lfm3-audio and WAV audio unless you set others
+  CODEVIGRAH_TTS_VOICE=female-american-english
+  CODEVIGRAH_TTS_VOICES=female-american-english,male-american-english,female-british-english,male-british-english
+  ```
+
+  The voices come from Ollama's `/api/show` (lfm3-audio has a male and a female voice for 18 languages and accents); list the
+  ones to offer, or the menu shows them all. On an RTX 5080 a sentence takes about 0.3 s once the model is loaded; the first
+  request after Ollama unloads it (5 idle minutes by default, `OLLAMA_KEEP_ALIVE` changes that) waits about 20 s. Ollama makes
+  WAV or PCM, not MP3, so cached audio takes several times the space of MP3. `phonon`, Ollama's other speech model,
+  needs a Mac (MLX).
+
 * **Another machine on your network**, such as a Mac with Apple Silicon running the same speech server (see
   [its README](../contrib/speech-server/README.md#on-a-mac-apple-silicon-for-the-pi-to-use)). List several servers, fastest
   first: `CODEVIGRAH_TTS_BASE_URL=http://my-mac.local:8880/v1,http://127.0.0.1:8880/v1`. One that does not answer is skipped
@@ -91,12 +106,12 @@ own API, which CodeVigrah does not speak yet; a provider for them would go in `s
 
 | Variable | Default | |
 |---|---|---|
-| `CODEVIGRAH_TTS_BASE_URL` | empty: device voices only | the speech server, e.g. `http://127.0.0.1:8880/v1`; several, comma-separated, fastest first |
+| `CODEVIGRAH_TTS_BASE_URL` | empty: device voices only | the speech server, e.g. `http://127.0.0.1:8880/v1`; several, comma-separated, fastest first; `ollama` = the server in `OLLAMA_HOST` |
 | `CODEVIGRAH_TTS_API_KEY` | | sent as `Authorization: Bearer …` |
-| `CODEVIGRAH_TTS_MODEL` | `kokoro` | the `model` field of each request |
+| `CODEVIGRAH_TTS_MODEL` | `kokoro` (`lfm3-audio` with `ollama`) | the `model` field of each request |
 | `CODEVIGRAH_TTS_VOICE` | the server's first voice | default voice |
 | `CODEVIGRAH_TTS_VOICES` | the server's list | comma-separated voices to offer (required for servers without a voice list) |
-| `CODEVIGRAH_TTS_FORMAT` | `mp3` | `mp3`, `opus`, `aac`, `flac` or `wav` |
+| `CODEVIGRAH_TTS_FORMAT` | `mp3` (`wav` with `ollama`) | `mp3`, `opus`, `aac`, `flac` or `wav` |
 | `CODEVIGRAH_TTS_TIMEOUT` | `120` | seconds per sentence |
 | `CODEVIGRAH_TTS_CONCURRENCY` | `1` | sentences voiced at the same time (raise it for a GPU server) |
 | `CODEVIGRAH_TTS_PREPARE` | `0` | voice tour chapters in the background with the default voice |

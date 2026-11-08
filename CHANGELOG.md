@@ -14,6 +14,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
   fallback. `contrib/speech-server/` runs Kokoro and Piper on a Raspberry Pi 5. `CODEVIGRAH_TTS_*` settings, an optional
   background pre-voicing of tour chapters, and a per-visitor limit on fresh audio.
 - The player shows the sentence being spoken, which script is used, and a switch to compare it with the plain reading.
+- Read-aloud through Ollama's speech model (`lfm3-audio`): `CODEVIGRAH_TTS_BASE_URL=ollama` uses the Ollama server, with
+  its voices read from `/api/show`. Ollama's own `OLLAMA_HOST` now sets where Ollama is for both AI and read-aloud.
 
 ### Fixed
 

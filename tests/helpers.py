@@ -142,7 +142,10 @@ class StubSpeech:
 
     AUDIO = b'ID3\x03 not really an mp3'
 
-    def __init__(self, voices=({'id': 'af_heart', 'name': 'Heart (US female, Kokoro)'}, 'bf_emma'), fail=False):
+    def __init__(
+        self, voices=({'id': 'af_heart', 'name': 'Heart (US female, Kokoro)'}, 'bf_emma'), fail=False, show=None
+    ):
+        """``show``: answer Ollama's ``POST /api/show`` with these voices (pair it with ``voices=None``)."""
         self.requests: list[dict] = []
         stub = self
 
@@ -165,6 +168,10 @@ class StubSpeech:
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
                 stub.requests.append({'path': self.path, 'auth': self.headers.get('Authorization'), 'body': body})
+                if self.path == '/api/show':
+                    if show is None:
+                        return self.reply(404, b'{"error": "not found"}', 'application/json')
+                    return self.reply(200, json.dumps({'voices': list(show)}).encode(), 'application/json')
                 if fail:
                     return self.reply(500, b'{"error": "boom"}', 'application/json')
                 self.reply(200, stub.AUDIO, 'audio/mpeg')

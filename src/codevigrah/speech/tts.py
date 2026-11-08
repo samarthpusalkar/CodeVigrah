@@ -1,7 +1,7 @@
 """Natural voices from a speech server that speaks the OpenAI-style ``/v1/audio/speech`` API (standard library only).
 
-That covers the local server in ``contrib/speech-server`` (Kokoro and Piper on the Pi), Kokoro-FastAPI or Speaches
-on a GPU machine, and hosted APIs such as OpenAI. Audio is cached on disk one sentence at a time, so every sentence
+That covers the local server in ``contrib/speech-server`` (Kokoro and Piper on the Pi), Ollama's speech models
+(``lfm3-audio``), Kokoro-FastAPI or Speaches on a GPU machine, and hosted APIs such as OpenAI. Audio is cached on disk one sentence at a time, so every sentence
 is voiced once per voice and replays cost nothing.
 
 Several servers can be listed, fastest first (``http://mac.local:8880/v1,http://127.0.0.1:8880/v1``): a server that
@@ -81,9 +81,10 @@ class SpeechEngine:
         except OSError:
             return False
 
-    def _request(self, path: str, body: dict | None = None, timeout: float | None = None):
+    def _request(self, path: str, body: dict | None = None, timeout: float | None = None, native: bool = False):
         """Send to the first server that works. Unreachable servers and server errors (5xx) move on to the next
-        one; a 4xx means the request itself is wrong, so it is reported at once."""
+        one; a 4xx means the request itself is wrong, so it is reported at once. ``native`` drops the ``/v1`` for
+        a server's own API (Ollama's ``/api/...``)."""
         headers = {'User-Agent': f'codevigrah/{__version__}'}
         if body is not None:
             headers['Content-Type'] = 'application/json'
@@ -96,7 +97,8 @@ class SpeechEngine:
                 self._down[url] = time.time() + DOWN_FOR
                 errors.append(f'{url} is not answering')
                 continue
-            req = urllib.request.Request(url + path, data=data, headers=headers, method='POST' if data else 'GET')
+            root = url.removesuffix('/v1') if native else url
+            req = urllib.request.Request(root + path, data=data, headers=headers, method='POST' if data else 'GET')
             try:
                 return urllib.request.urlopen(req, timeout=timeout or self.timeout)
             except urllib.error.HTTPError as e:
@@ -129,14 +131,29 @@ class SpeechEngine:
                 if vid:
                     label = v.get('name') or vid if isinstance(v, dict) else vid
                     found.append({'id': str(vid), 'label': str(label)})
-            ok = bool(found)
         except (SpeechError, ValueError, AttributeError):
-            ok = False
+            pass
+        if not found:
+            found = self._ollama_voices()
+        ok = bool(found)
         if self.allow:
             known = {v['id']: v for v in found}
             found = [known.get(v, {'id': v, 'label': v}) for v in self.allow if not found or v in known]
         self._voices, self._voices_at, self._voices_ok = found, now, ok
         return found
+
+    def _ollama_voices(self) -> list[dict]:
+        """Ollama has no voice-list endpoint; its ``/api/show`` names the model's voices instead."""
+        try:
+            with self._request('/api/show', {'model': self.model}, timeout=5, native=True) as r:
+                data = json.load(r)
+        except (SpeechError, ValueError):
+            return []
+        raw = data.get('voices') if isinstance(data, dict) else None
+        if not isinstance(raw, list):
+            return []
+        # 'female-american-english' -> 'Female American English'
+        return [{'id': str(v), 'label': str(v).replace('-', ' ').replace('_', ' ').title()} for v in raw if v]
 
     def voice_ids(self) -> list[str]:
         return [v['id'] for v in self.voices()]

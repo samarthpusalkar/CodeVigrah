@@ -85,6 +85,12 @@ class RouterTests(unittest.TestCase):
         groq = next(p for p in r.settings()['providers'] if p['name'] == 'groq')
         self.assertTrue(groq['has_key'])
 
+    def test_ollama_follows_ollama_host_but_waits_for_a_model(self):
+        ollama = providers_from_env({'OLLAMA_HOST': '192.168.1.50:11434'})['ollama']
+        self.assertEqual(ollama.base_url, 'http://192.168.1.50:11434/v1')
+        self.assertFalse(ollama.available())  # the shared host alone does not switch AI over to Ollama
+        self.assertEqual(providers_from_env({})['ollama'].base_url, 'http://localhost:11434/v1')
+
     def test_update_from_settings_dialog(self):
         r = Router(providers_from_env({}))
         r.update({'provider': 'ollama', 'model': 'qwen2.5-coder:14b', 'api_key': '', 'order': 'ollama,claude-cli'})

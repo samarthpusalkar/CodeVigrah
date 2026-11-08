@@ -23,7 +23,7 @@ import os
 import threading
 from collections.abc import Callable, Mapping
 
-from ..config import env_bool, env_int, env_str
+from ..config import env_bool, env_int, env_str, ollama_base_url
 from .anthropic_api import DEFAULT_MODEL, AnthropicProvider
 from .base import LLMError, Provider
 from .claude_cli import ClaudeCodeProvider
@@ -43,7 +43,7 @@ def providers_from_env(environ: Mapping[str, str]) -> dict[str, Provider]:
         up = name.upper()
         return OpenAICompatProvider(
             name,
-            base_url=env_str(environ, f'CODEVIGRAH_{up}_BASE_URL'),
+            base_url=ollama_base_url(environ) if name == 'ollama' else env_str(environ, f'CODEVIGRAH_{up}_BASE_URL'),
             api_key=env_str(environ, f'CODEVIGRAH_{up}_API_KEY')
             or (env_str(environ, key_fallback) if key_fallback else ''),
             model=env_str(environ, f'CODEVIGRAH_{up}_MODEL'),

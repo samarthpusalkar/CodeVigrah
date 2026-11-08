@@ -72,9 +72,12 @@ with a GPU. On the GPU machine start Ollama with `OLLAMA_HOST=0.0.0.0` (and allo
 network only), then point CodeVigrah at it:
 
 ```bash
-CODEVIGRAH_OLLAMA_BASE_URL=http://gpu-box.local:11434/v1
+OLLAMA_HOST=gpu-box.local:11434         # or CODEVIGRAH_OLLAMA_BASE_URL=http://gpu-box.local:11434/v1, which wins
 CODEVIGRAH_AI_PROVIDERS=ollama,groq     # use the GPU when it is on, Groq when it is off
 ```
+
+`OLLAMA_HOST` is Ollama's own variable, so read-aloud can use the same machine with `CODEVIGRAH_TTS_BASE_URL=ollama`
+(see [speech.md](speech.md)). It only says where Ollama is: AI uses Ollama once `CODEVIGRAH_OLLAMA_MODEL` is set.
 
 **Which model?** Code-focused models in the 14B–20B range fit a 16 GB GPU at 4-bit quantisation and write decent tours, for
 example `qwen2.5-coder:14b`. Bigger models write better chapters and quizzes. Check [ollama.com/library](https://ollama.com/library)

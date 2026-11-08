@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import re
+import urllib.parse
 from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -62,6 +63,31 @@ def env_int(environ: Mapping[str, str], name: str, default: int) -> int:
         return int(value) if value else default
     except ValueError as e:
         raise ValueError(f'{name} must be a whole number, got {value!r}') from e
+
+
+def ollama_base_url(environ: Mapping[str, str], default: str = '') -> str:
+    """The Ollama server's OpenAI-style base URL (``.../v1``), shared by the AI provider and read-aloud.
+
+    ``CODEVIGRAH_OLLAMA_BASE_URL`` wins; otherwise Ollama's own ``OLLAMA_HOST`` (``host``, ``host:port`` or a URL)
+    is used, so one setting points everything at the same GPU machine. Returns ``default`` when neither is set.
+    """
+    explicit = env_str(environ, 'CODEVIGRAH_OLLAMA_BASE_URL')
+    if explicit:
+        return explicit.rstrip('/')
+    host = env_str(environ, 'OLLAMA_HOST')
+    if not host:
+        return default
+    if '://' not in host:
+        host = 'http://' + host
+    parts = urllib.parse.urlsplit(host)
+    name = parts.hostname or '127.0.0.1'
+    if name in ('0.0.0.0', '::'):  # a server's "listen everywhere" address; as a client that means this machine
+        name = '127.0.0.1'
+    if ':' in name:
+        name = f'[{name}]'
+    port = parts.port or (443 if parts.scheme == 'https' else 11434)  # Ollama's own defaults
+    path = parts.path.rstrip('/')
+    return f'{parts.scheme}://{name}:{port}{path if path.endswith("/v1") else path + "/v1"}'
 
 
 @dataclass(frozen=True)

@@ -208,6 +208,40 @@ class EngineTests(unittest.TestCase):
         finally:
             stub.close()
 
+    def test_voices_from_ollama(self):
+        stub = StubSpeech(voices=None, show=['default', 'female-american-english'])
+        try:
+            eng = SpeechEngine(base_url=stub.url, model='lfm3-audio', voice='female-american-english')
+            self.assertEqual(
+                eng.voices(),
+                [
+                    {'id': 'default', 'label': 'Default'},
+                    {'id': 'female-american-english', 'label': 'Female American English'},
+                ],
+            )
+            self.assertEqual(eng.default_voice(), 'female-american-english')
+            self.assertEqual(stub.requests[0], {'path': '/api/show', 'auth': None, 'body': {'model': 'lfm3-audio'}})
+        finally:
+            stub.close()
+
+    def test_ollama_shorthand_uses_the_shared_host(self):
+        eng = speech.configure({'CODEVIGRAH_TTS_BASE_URL': 'ollama', 'OLLAMA_HOST': '192.168.1.50:11434'})
+        self.assertEqual((eng.urls, eng.model, eng.fmt), (['http://192.168.1.50:11434/v1'], 'lfm3-audio', 'wav'))
+        eng = speech.configure(
+            {
+                'CODEVIGRAH_TTS_BASE_URL': 'ollama, http://127.0.0.1:8880/v1',
+                'CODEVIGRAH_TTS_MODEL': 'other',
+                'CODEVIGRAH_TTS_FORMAT': 'pcm',
+            }
+        )
+        self.assertEqual(
+            (eng.urls, eng.model, eng.fmt),
+            (['http://127.0.0.1:11434/v1', 'http://127.0.0.1:8880/v1'], 'other', 'pcm'),
+        )
+        eng = speech.configure({'CODEVIGRAH_TTS_BASE_URL': 'http://127.0.0.1:8880/v1', 'OLLAMA_HOST': 'gpu:11434'})
+        self.assertEqual((eng.urls, eng.model, eng.fmt), (['http://127.0.0.1:8880/v1'], 'kokoro', 'mp3'))
+        speech.configure({})
+
     def test_falls_back_to_the_next_server(self):
         with socket.socket() as sock:
             sock.bind(('127.0.0.1', 0))
