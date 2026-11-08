@@ -133,6 +133,20 @@ own API, which CodeVigrah does not speak yet; a provider for them would go in `s
 The settings above `CODEVIGRAH_TTS_OLLAMA_*` apply to every server in the list except `ollama`; the format, key and timeout
 of `ollama` are fixed (WAV, none) or shared (timeout).
 
+## Keyboard
+
+While listening, as on YouTube (never while typing in a text field):
+
+| Key | |
+|---|---|
+| Space or `k` | pause / resume |
+| `j` / `l` | previous / next sentence |
+| Shift+`P` / Shift+`N`, or Ctrl+← / Ctrl+→ | previous / next paragraph |
+| `<` / `>` | slower / faster |
+| `0` … `9` | jump to 0 % … 90 % of the text |
+
+Choosing a voice or a speed gives the keyboard back to the page, so Space pauses instead of reopening the menu.
+
 ## Privacy
 
 * With a speech server, the text and the audio stay on the machines you run.

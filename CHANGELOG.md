@@ -19,12 +19,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `/api/show`. Ollama's own `OLLAMA_HOST` now sets where Ollama is for both AI and read-aloud.
 - Speech servers in a chain, each with its own model and voices: `ollama,http://127.0.0.1:8880/v1` means Phonon first and
   Kokoro when Ollama is not answering, in the chosen voice when that server has it and its default voice otherwise.
+- Keyboard controls in the player, as on YouTube: Space or k, j and l, Shift+P and Shift+N, < and >, 0 to 9.
 
 ### Fixed
 
 - A speech server that does not answer no longer looks available: the player used to offer its voices, wait for every
   sentence to fail and then read it in the device's voice, so all voices sounded the same with a pause before each sentence.
   Now the next server speaks, or the device's voices straight away.
+- Space in the player no longer reopens the voice menu or scrolls the page: menus give the keyboard back after a choice.
 - The analysis log no longer flickers or ends in "Analysis failed" when Enter is pressed again (or another repository is
   started) during an analysis: only the latest analysis updates the page, and a request for a repository that is already
   being analysed joins that job instead of starting a duplicate. The log shows how long the current step has been running.

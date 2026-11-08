@@ -178,6 +178,28 @@ function playDevice(it, token, name) {
 function halt() { TTS.token++; if (synth) synth.cancel(); TTS.audio.onended = TTS.audio.onerror = null; TTS.audio.pause(); }
 function ttsRestart() { if (!TTS.on) return; halt(); TTS.paused = TTS.held = false; $('#tplay').textContent = '⏸'; ttsPlay(TTS.token); }  // same sentence again
 function ttsJump(d) { if (!TTS.on) return; TTS.i = Math.max(0, Math.min(TTS.q.length, TTS.i + d)); TTS.p = 0; ttsRestart(); }
+function ttsStep(d) {  // one sentence back or forward, across paragraphs
+  if (!TTS.on || !TTS.q.length) return;
+  let i = Math.min(TTS.i, TTS.q.length - 1), p = (TTS.i < TTS.q.length ? TTS.p : TTS.q[i].parts.length) + d;
+  while (p < 0 && i > 0) { i--; p += TTS.q[i].parts.length; }
+  while (TTS.q[i] && p >= TTS.q[i].parts.length) { p -= TTS.q[i].parts.length; i++; }
+  TTS.i = i; TTS.p = TTS.q[i] ? Math.max(0, p) : 0;
+  if (TTS.q[i]) mark(TTS.q[i]);
+  ttsRestart();
+}
+function ttsSeek(tenth) { if (!TTS.on) return; TTS.i = Math.floor(TTS.q.length * tenth / 10); TTS.p = 0; ttsRestart(); }
+function ttsPause() {
+  if (!TTS.on) return;
+  if (TTS.paused) {
+    TTS.paused = false; $('#tplay').textContent = '⏸';
+    if (TTS.held) { TTS.held = false; ttsPlay(TTS.token); } else if (TTS.mode === 'server') TTS.audio.play().catch(() => {}); else synth.resume();
+  } else { TTS.paused = true; $('#tplay').textContent = '▶'; if (TTS.mode === 'server') TTS.audio.pause(); else if (synth) synth.pause(); }
+}
+function ttsSpeed(d) {
+  const sel = $('#trate'), k = sel.selectedIndex + d;
+  if (k < 0 || k >= sel.options.length) return;
+  sel.selectedIndex = k; sel.onchange({ target: sel });
+}
 function ttsStop(keepBar) {
   TTS.on = false; TTS.run++; halt(); clearTimeout(TTS.poll); TTS.paused = TTS.held = false;
   document.querySelectorAll('.reading').forEach(x => x.classList.remove('reading'));
@@ -188,19 +210,36 @@ function ttsLabel(pending, note) {
   const what = { ai: 'listening script (AI)', plain: pending ? 'plain reading (AI script on its way)' : 'plain reading', page: 'reading the page' }[TTS.source] || '';
   $('#tsrc').textContent = note || what;
 }
-$('#tplay').onclick = () => {
-  if (!TTS.on) return;
-  if (TTS.paused) {
-    TTS.paused = false; $('#tplay').textContent = '⏸';
-    if (TTS.held) { TTS.held = false; ttsPlay(TTS.token); } else if (TTS.mode === 'server') TTS.audio.play().catch(() => {}); else synth.resume();
-  } else { TTS.paused = true; $('#tplay').textContent = '▶'; if (TTS.mode === 'server') TTS.audio.pause(); else if (synth) synth.pause(); }
-};
+$('#tplay').onclick = ttsPause;
 $('#tstop').onclick = () => ttsStop(); $('#tprev').onclick = () => ttsJump(-1); $('#tnext').onclick = () => ttsJump(1);
 $('#trate').value = String(store.get('ttsrate', 1));
-$('#trate').onchange = e => { store.set('ttsrate', +e.target.value); if (TTS.mode === 'server') TTS.audio.playbackRate = ttsRate(); else ttsRestart(); };
-$('#tvoice').onchange = e => { store.set('ttsvoice', e.target.value); ttsRestart(); };
+// Menus give focus back after a choice, so Space and the letter keys below control playback instead of reopening
+// the menu or picking an option by its first letter.
+$('#trate').onchange = e => { e.target.blur(); store.set('ttsrate', +e.target.value); if (TTS.mode === 'server') TTS.audio.playbackRate = ttsRate(); else ttsRestart(); };
+$('#tvoice').onchange = e => { e.target.blur(); store.set('ttsvoice', e.target.value); ttsRestart(); };
 $('#tauto').checked = store.get('ttsauto', true); $('#tauto').onchange = e => store.set('ttsauto', e.target.checked);
 $('#tscript').checked = store.get('ttsscript', true);
 $('#tscript').onchange = e => { store.set('ttsscript', e.target.checked); if (!TTS.on) return; const cur = TTS.q[TTS.i]; ttsStart(TTS.container, { ...TTS.opts, fromLn: cur ? cur.ln : null }); };
+// Keyboard, as on YouTube: Space or k pause and resume, j and l go one sentence back and forward, Shift+P and Shift+N
+// (or Ctrl+arrows) a paragraph, < and > change the speed, 0 to 9 jump to 0%…90% of the text. Only while listening,
+// and never while typing in a text field.
+const TTS_KEYS = {
+  ' ': ttsPause, k: ttsPause, j: () => ttsStep(-1), l: () => ttsStep(1),
+  P: () => ttsJump(-1), N: () => ttsJump(1), '<': () => ttsSpeed(-1), '>': () => ttsSpeed(1),
+};
+function ttsKey(e) {
+  if (!TTS.on || e.altKey || e.metaKey || e.isComposing) return null;
+  const t = e.target;
+  if (t.isContentEditable || t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && !/^(checkbox|radio|button|range)$/.test(t.type))) return null;
+  if (e.ctrlKey) return { ArrowLeft: () => ttsJump(-1), ArrowRight: () => ttsJump(1) }[e.key] || null;
+  if (/^[0-9]$/.test(e.key)) return () => ttsSeek(+e.key);
+  return TTS_KEYS[e.key] || null;
+}
+document.addEventListener('keydown', e => {
+  const act = ttsKey(e); if (!act) return;
+  e.preventDefault();  // no page scroll, no menu opening
+  if (/^(BUTTON|SELECT|INPUT)$/.test(e.target.tagName)) e.target.blur();  // or its keyup would click it as well
+  act();
+});
 // double-click any paragraph while listening to jump there
 document.addEventListener('dblclick', e => { if (!TTS.on) return; const k = TTS.q.findIndex(b => b.el && b.el.contains(e.target)); if (k >= 0) { TTS.i = k; TTS.p = 0; ttsRestart(); } });
