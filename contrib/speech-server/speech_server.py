@@ -19,6 +19,7 @@ dependencies. Endpoints:
 from __future__ import annotations
 
 import argparse
+import hmac
 import importlib.util
 import io
 import json
@@ -225,7 +226,9 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(code, json.dumps({'error': {'message': message}}).encode(), 'application/json')
 
     def authorised(self) -> bool:
-        return not self.api_key or self.headers.get('Authorization', '') == f'Bearer {self.api_key}'
+        # compare_digest takes the same time however much of a guess is right, so the key cannot be found byte by byte
+        sent = self.headers.get('Authorization', '').encode()
+        return not self.api_key or hmac.compare_digest(sent, f'Bearer {self.api_key}'.encode())
 
     def do_GET(self):
         if self.path == '/health':
