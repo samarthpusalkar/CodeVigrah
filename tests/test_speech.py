@@ -11,7 +11,7 @@ from pathlib import Path
 
 from codevigrah import llm, speech
 from codevigrah.speech import listen, text
-from codevigrah.speech.tts import SpeechEngine, SpeechError
+from codevigrah.speech.tts import SpeechEngine, SpeechError, SpeechServer
 from helpers import StubOpenAI, StubSpeech, TempDir
 from test_server import ServerCase
 
@@ -183,7 +183,7 @@ class EngineTests(unittest.TestCase):
     def test_voices_and_cached_speech(self):
         stub = StubSpeech()
         try:
-            eng = SpeechEngine(base_url=stub.url, api_key='k', voice='bf_emma')
+            eng = SpeechEngine([SpeechServer(stub.url, api_key='k', voice='bf_emma')])
             self.assertEqual([v['id'] for v in eng.voices()], ['af_heart', 'bf_emma'])
             self.assertEqual(eng.voices()[0]['label'], 'Heart (US female, Kokoro)')
             self.assertEqual(eng.default_voice(), 'bf_emma')
@@ -191,6 +191,7 @@ class EngineTests(unittest.TestCase):
             again = eng.speak(self.tmp.path, 'Hello there.', 'af_heart')
             self.assertEqual(first, (StubSpeech.AUDIO, 'audio/mpeg'))
             self.assertEqual(again, first)
+            self.assertEqual(eng.cached(self.tmp.path, 'Hello there.', 'af_heart'), first)
             self.assertEqual(len(stub.requests), 1)  # the second one came from the cache
             req = stub.requests[0]
             self.assertEqual(req['auth'], 'Bearer k')
@@ -201,8 +202,8 @@ class EngineTests(unittest.TestCase):
     def test_configured_voices_for_servers_without_a_list(self):
         stub = StubSpeech(voices=None)  # like OpenAI: no voice list endpoint
         try:
-            self.assertEqual(SpeechEngine(base_url=stub.url).voices(), [])
-            eng = SpeechEngine(base_url=stub.url, voices=('alloy', 'nova'))
+            self.assertEqual(SpeechEngine([SpeechServer(stub.url)]).voices(), [])
+            eng = SpeechEngine([SpeechServer(stub.url, voices=('alloy', 'nova'))])
             self.assertEqual(eng.voice_ids(), ['alloy', 'nova'])
             self.assertTrue(eng.available())
         finally:
@@ -211,7 +212,7 @@ class EngineTests(unittest.TestCase):
     def test_voices_from_ollama(self):
         stub = StubSpeech(voices=None, show=['default', 'female-american-english'])
         try:
-            eng = SpeechEngine(base_url=stub.url, model='lfm3-audio', voice='female-american-english')
+            eng = SpeechEngine([SpeechServer(stub.url, model='phonon', voice='female-american-english')])
             self.assertEqual(
                 eng.voices(),
                 [
@@ -220,26 +221,35 @@ class EngineTests(unittest.TestCase):
                 ],
             )
             self.assertEqual(eng.default_voice(), 'female-american-english')
-            self.assertEqual(stub.requests[0], {'path': '/api/show', 'auth': None, 'body': {'model': 'lfm3-audio'}})
+            self.assertEqual(eng.info()['model'], 'phonon')
+            self.assertEqual(stub.requests[0], {'path': '/api/show', 'auth': None, 'body': {'model': 'phonon'}})
         finally:
             stub.close()
 
-    def test_ollama_shorthand_uses_the_shared_host(self):
-        eng = speech.configure({'CODEVIGRAH_TTS_BASE_URL': 'ollama', 'OLLAMA_HOST': '192.168.1.50:11434'})
-        self.assertEqual((eng.urls, eng.model, eng.fmt), (['http://192.168.1.50:11434/v1'], 'lfm3-audio', 'wav'))
+    def test_ollama_entry_takes_its_own_settings(self):
         eng = speech.configure(
             {
                 'CODEVIGRAH_TTS_BASE_URL': 'ollama, http://127.0.0.1:8880/v1',
-                'CODEVIGRAH_TTS_MODEL': 'other',
-                'CODEVIGRAH_TTS_FORMAT': 'pcm',
+                'OLLAMA_HOST': '192.168.1.50:11434',
+                'CODEVIGRAH_TTS_OLLAMA_VOICE': 'Freya',
+                'CODEVIGRAH_TTS_VOICE': 'af_heart',
+                'CODEVIGRAH_TTS_API_KEY': 'k',
             }
         )
+        ollama, kokoro = eng.servers
         self.assertEqual(
-            (eng.urls, eng.model, eng.fmt),
-            (['http://127.0.0.1:11434/v1', 'http://127.0.0.1:8880/v1'], 'other', 'pcm'),
+            (ollama.url, ollama.model, ollama.voice, ollama.fmt, ollama.api_key),
+            ('http://192.168.1.50:11434/v1', 'phonon', 'Freya', 'wav', ''),
         )
-        eng = speech.configure({'CODEVIGRAH_TTS_BASE_URL': 'http://127.0.0.1:8880/v1', 'OLLAMA_HOST': 'gpu:11434'})
-        self.assertEqual((eng.urls, eng.model, eng.fmt), (['http://127.0.0.1:8880/v1'], 'kokoro', 'mp3'))
+        self.assertEqual(
+            (kokoro.url, kokoro.model, kokoro.voice, kokoro.fmt, kokoro.api_key),
+            ('http://127.0.0.1:8880/v1', 'kokoro', 'af_heart', 'mp3', 'k'),
+        )
+        (local,) = speech.configure(
+            {'CODEVIGRAH_TTS_BASE_URL': 'ollama', 'CODEVIGRAH_TTS_OLLAMA_MODEL': 'lfm3-audio'}
+        ).servers
+        self.assertEqual((local.url, local.model), ('http://127.0.0.1:11434/v1', 'lfm3-audio'))
+        self.assertEqual(speech.configure({}).servers, [])
         speech.configure({})
 
     def test_falls_back_to_the_next_server(self):
@@ -248,24 +258,56 @@ class EngineTests(unittest.TestCase):
             closed = f'http://127.0.0.1:{sock.getsockname()[1]}/v1'  # nothing listens here: a sleeping laptop
         broken, backup = StubSpeech(fail=True), StubSpeech()
         try:
-            eng = SpeechEngine(base_url=f'{closed}, {broken.url},{backup.url}')
+            eng = SpeechEngine([SpeechServer(closed), SpeechServer(broken.url), SpeechServer(backup.url)])
             self.assertEqual(eng.voice_ids(), ['af_heart', 'bf_emma'])  # listed by the first server that answers
+            self.assertFalse(eng.servers[0].is_up())
             self.assertEqual(eng.synthesize('Hi.', 'af_heart'), (StubSpeech.AUDIO, 'audio/mpeg'))
             self.assertEqual((len(broken.requests), len(backup.requests)), (1, 1))  # 5xx: moved on
             eng.synthesize('Again.', 'af_heart')
-            self.assertEqual(
-                (len(broken.requests), len(backup.requests)), (1, 2)
-            )  # failed ones are skipped for a while
-            self.assertIn(closed, eng._down)
+            self.assertEqual((len(broken.requests), len(backup.requests)), (1, 2))  # failed ones are skipped a while
         finally:
             broken.close()
             backup.close()
+
+    def test_phonon_then_kokoro_in_their_own_voices(self):
+        phonon = StubSpeech(voices=None, show=['Freya', 'Hugh'])
+        kokoro = StubSpeech()
+        try:
+            eng = SpeechEngine(
+                [SpeechServer(phonon.url, model='phonon', voice='Freya'), SpeechServer(kokoro.url, voice='bf_emma')]
+            )
+            self.assertEqual((eng.voice_ids(), eng.default_voice()), (['Freya', 'Hugh'], 'Freya'))
+            eng.speak(self.tmp.path, 'One.', 'Hugh')
+            self.assertEqual(phonon.requests[-1]['body']['voice'], 'Hugh')
+            phonon.close()  # Ollama goes away mid-chapter
+            eng.speak(self.tmp.path, 'Two.', 'Hugh')  # Kokoro has no Hugh: its default voice speaks
+            self.assertEqual(kokoro.requests[-1]['body'] | {}, kokoro.requests[-1]['body'] | {'voice': 'bf_emma'})
+            self.assertEqual(kokoro.requests[-1]['body']['model'], 'kokoro')
+            self.assertEqual((eng.voice_ids(), eng.default_voice()), (['af_heart', 'bf_emma'], 'bf_emma'))
+            self.assertEqual(eng.info()['model'], 'kokoro')
+            self.assertIsNotNone(eng.cached(self.tmp.path, 'Two.', 'Hugh'))
+        finally:
+            kokoro.close()
+
+    def test_nothing_answering_means_no_natural_voices(self):
+        with socket.socket() as sock:
+            sock.bind(('127.0.0.1', 0))
+            closed = f'http://127.0.0.1:{sock.getsockname()[1]}/v1'
+        # configured voices used to make an unreachable server look available, so every sentence waited and failed
+        eng = SpeechEngine([SpeechServer(closed, voices=('Freya', 'Hugh'))])
+        self.assertFalse(eng.available())
+        self.assertEqual(eng.info(), {'available': False})
+        started = time.time()
+        with self.assertRaises(SpeechError):
+            eng.speak(self.tmp.path, 'Hi.', 'Freya')
+        self.assertLess(time.time() - started, 1)  # skipped at once, no waiting on the dead server
+        self.assertEqual(eng.status(), [f'kokoro at {closed}: not answering yet'])
 
     def test_failures_raise_speech_errors(self):
         stub = StubSpeech(fail=True)
         try:
             with self.assertRaises(SpeechError):
-                SpeechEngine(base_url=stub.url).speak(self.tmp.path, 'Hi.', 'af_heart')
+                SpeechEngine([SpeechServer(stub.url)]).speak(self.tmp.path, 'Hi.', 'af_heart')
         finally:
             stub.close()
         self.assertFalse(SpeechEngine().available())
@@ -306,7 +348,9 @@ class SpeechServerTests(ServerCase):
         n = len(self.speech.requests)
         self.assertEqual(self.audio(res['sid'])[0], 200)
         self.assertEqual(len(self.speech.requests), n)  # replayed from the cache
-        self.assertEqual(self.audio(res['sid'], voice='nope')[0], 400)
+        # a voice this server does not have (left over from another server) gets its default voice, here from the cache
+        self.assertEqual(self.audio(res['sid'], voice='nope')[:2], (200, StubSpeech.AUDIO))
+        self.assertEqual(len(self.speech.requests), n)
         self.assertEqual(self.audio('0' * 16)[0], 404)
         self.assertEqual(self.audio(res['sid'], seg=999)[0], 404)
         self.assertIn('media-src', self.call('GET', '/', raw=True)[2]['Content-Security-Policy'])

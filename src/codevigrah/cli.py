@@ -72,10 +72,8 @@ def serve(settings: Settings) -> int:
         flush=True,
     )
     tts = speech.engine()
-    if tts.base_url:
-        voices = tts.voice_ids()
-        status = f'{len(voices)} voices at {tts.base_url}' if voices else f'{tts.base_url} is not answering yet'
-        print(f'  Read-aloud: natural voices, {status}', flush=True)
+    for k, line in enumerate(tts.status()):
+        print(f'  Read-aloud: {"natural voices from" if k == 0 else "then"} {line}', flush=True)
     if not settings.is_loopback and not settings.public:
         print(
             '  Listening on the network without --public: anyone who can reach this port can change AI settings.',

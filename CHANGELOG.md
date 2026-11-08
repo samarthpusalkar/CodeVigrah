@@ -14,11 +14,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
   fallback. `contrib/speech-server/` runs Kokoro and Piper on a Raspberry Pi 5. `CODEVIGRAH_TTS_*` settings, an optional
   background pre-voicing of tour chapters, and a per-visitor limit on fresh audio.
 - The player shows the sentence being spoken, which script is used, and a switch to compare it with the plain reading.
-- Read-aloud through Ollama's speech model (`lfm3-audio`): `CODEVIGRAH_TTS_BASE_URL=ollama` uses the Ollama server, with
-  its voices read from `/api/show`. Ollama's own `OLLAMA_HOST` now sets where Ollama is for both AI and read-aloud.
+- Read-aloud through Ollama's speech model Phonon (on Linux with Ollama's MLX package): `ollama` in
+  `CODEVIGRAH_TTS_BASE_URL` uses the Ollama server, with its own `CODEVIGRAH_TTS_OLLAMA_*` settings and voices read from
+  `/api/show`. Ollama's own `OLLAMA_HOST` now sets where Ollama is for both AI and read-aloud.
+- Speech servers in a chain, each with its own model and voices: `ollama,http://127.0.0.1:8880/v1` means Phonon first and
+  Kokoro when Ollama is not answering, in the chosen voice when that server has it and its default voice otherwise.
 
 ### Fixed
 
+- A speech server that does not answer no longer looks available: the player used to offer its voices, wait for every
+  sentence to fail and then read it in the device's voice, so all voices sounded the same with a pause before each sentence.
+  Now the next server speaks, or the device's voices straight away.
 - The analysis log no longer flickers or ends in "Analysis failed" when Enter is pressed again (or another repository is
   started) during an analysis: only the latest analysis updates the page, and a request for a repository that is already
   being analysed joins that job instead of starting a duplicate. The log shows how long the current step has been running.

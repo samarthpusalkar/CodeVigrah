@@ -368,11 +368,11 @@ def speech_audio(app: App, req: Request):
     rid = q.get('id', '')
     repo_or_404(app, rid)
     eng = speech.engine()
-    voice = q.get('voice') or eng.default_voice()
     if not eng.available():
-        raise HttpError(404, 'no speech server is configured')
-    if voice not in eng.voice_ids():
-        raise HttpError(400, 'unknown voice')
+        raise HttpError(404, 'no speech server is answering')
+    # A voice the answering server does not have (say a Phonon voice while Ollama is off and Kokoro speaks) becomes
+    # that server's default voice, so the listener keeps a natural voice instead of an error.
+    voice = q.get('voice') or eng.default_voice()
     text = app.script_part(rid, q.get('sid', ''), int_arg(q.get('seg'), 0), int_arg(q.get('part'), 0))
     if text is None:
         raise HttpError(404, 'script expired; prepare it again')
