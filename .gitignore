@@ -27,3 +27,6 @@ htmlcov/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Exported Claude Code conversations (local notes, never commit)
+.conversation-history/
