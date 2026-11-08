@@ -167,6 +167,10 @@ class Engines:
             # CUDA when there is an NVIDIA GPU, else the CPU. CoreML (macOS) is opt-in through --providers: it can be
             # slower than the CPU for this model, which has many dynamic shapes.
             available = ort.get_available_providers()
+            if 'CUDAExecutionProvider' in available and hasattr(ort, 'preload_dlls'):
+                # onnxruntime-gpu[cuda,cudnn] installs CUDA and cuDNN as pip packages, outside the system library
+                # path. Load them first, or onnxruntime quietly falls back to the CPU.
+                ort.preload_dlls()
             providers = [
                 p for p in self.providers or ['CUDAExecutionProvider', 'CPUExecutionProvider'] if p in available
             ]
