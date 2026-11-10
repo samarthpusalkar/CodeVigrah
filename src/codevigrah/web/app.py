@@ -248,7 +248,7 @@ class App:
         path = self.listen_path(rid, key)
         if not by_ai or listen.load(path, md) is not None:
             return False
-        if time.time() - self._listen_failed.get(path, 0) < LISTEN_RETRY:
+        if time.monotonic() - self._listen_failed.get(path, -LISTEN_RETRY) < LISTEN_RETRY:
             return False
         if ('listen:' + key) in self.working(rid):
             return True
@@ -260,7 +260,7 @@ class App:
                 try:
                     listen.save(path, md, listen.generate(md, title, cwd=root))
                 except llm.LLMError as e:
-                    self._listen_failed[path] = time.time()
+                    self._listen_failed[path] = time.monotonic()
                     log.warning('listening script for %s chapter %s failed: %s', rid, key, e)
             self.prevoice(rid, key)
             return {}

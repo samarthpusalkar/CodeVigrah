@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+import unittest.mock
 from pathlib import Path
 
 from codevigrah import llm, speech
@@ -302,6 +303,24 @@ class EngineTests(unittest.TestCase):
             eng.speak(self.tmp.path, 'Hi.', 'Freya')
         self.assertLess(time.time() - started, 1)  # skipped at once, no waiting on the dead server
         self.assertEqual(eng.status(), [f'kokoro at {closed}: not answering yet'])
+
+    def test_a_clock_set_back_does_not_keep_a_server_down(self):
+        # At boot the clock was 5.5 hours fast (Windows keeps the hardware clock in local time). The first look found
+        # nothing; NTP then set the clock back. The server must be retried a minute later, not 5.5 hours later.
+        stub = StubSpeech()
+        try:
+            s = SpeechServer(stub.url)
+            s.mark_down()
+            self.assertEqual(s.voices(), [])
+            later = time.monotonic() + 61
+            with (
+                unittest.mock.patch('time.time', return_value=time.time() - 19800),
+                unittest.mock.patch('time.monotonic', return_value=later),
+            ):
+                self.assertTrue(s.is_up())
+                self.assertTrue(s.voices())
+        finally:
+            stub.close()
 
     def test_failures_raise_speech_errors(self):
         stub = StubSpeech(fail=True)

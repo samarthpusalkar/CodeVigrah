@@ -61,19 +61,21 @@ class SpeechServer:
         self.api_key = api_key
         self.fmt = fmt or 'mp3'
         self.timeout = timeout
+        # Timed with time.monotonic(), not the wall clock: a clock set back at boot (a Windows dual boot keeps the
+        # hardware clock in local time) would otherwise skip a server for hours.
         self.down_until = 0.0
         self._voices: list[dict] = []
-        self._voices_at = 0.0
+        self._voices_at = -float('inf')
         self._voices_ok = False
 
     def __repr__(self) -> str:
         return f'{self.model} at {self.url}'
 
     def is_up(self) -> bool:
-        return self.down_until <= time.time()
+        return self.down_until <= time.monotonic()
 
     def mark_down(self) -> None:
-        self.down_until = time.time() + DOWN_FOR
+        self.down_until = time.monotonic() + DOWN_FOR
 
     def answers(self) -> bool:
         """A quick TCP connect, so a sleeping machine costs two seconds instead of a full request timeout."""
@@ -113,7 +115,7 @@ class SpeechServer:
         Cached briefly; never raises."""
         if not self.is_up():
             return []
-        now = time.time()
+        now = time.monotonic()
         if now - self._voices_at < (VOICES_TTL if self._voices_ok else 60):
             return self._voices
         try:
